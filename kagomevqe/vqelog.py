@@ -24,7 +24,7 @@ class VQELog:
         self.last_time = time()
         self.values.append(value)
         self.parameters.append(parameters)
-        t = strftime("%H:%M:%S")
+        t = strftime("%m/%d %H:%M:%S%z")
         job_num = ((count - 1) // 4) + 1
         roto_subscript = ["0?", "+?", "-?", "best"][(count - 1) % 4]
         aspcr = self.avg_seconds_per_circuit_run()
