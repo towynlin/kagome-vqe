@@ -36,6 +36,27 @@ class VQELog:
         if count % 48 == 0:
             print(f"\nParameters: {parameters}\n")
 
+    def rotoselect_update(
+        self,
+        callback_count: int,
+        run_count: int,
+        d: int,
+        gate_name: str,
+        parameters: np.ndarray,
+        energy: float,
+    ):
+        self.last_time = time()
+        self.values.append(energy)
+        self.parameters.append(parameters)
+        t = strftime("%m/%d %H:%M:%S%z")
+        asprcb = self.avg_seconds_per_rotoselect_callback()
+        print(
+            f"{t} Callback {callback_count} (run count: {run_count})\tenergy: {energy: 08.04f}\tgate {d}: {gate_name}\tavg sec/run: {asprcb:05.02f}",
+            flush=True,
+        )
+        if callback_count % 12 == 0:
+            print(f"\nParameters: {parameters}\n")
+
     def avg_seconds_per_circuit_run(self) -> float:
         num_intervals = len(self.values) - 1
         if num_intervals == 0:
@@ -43,6 +64,11 @@ class VQELog:
         else:
             diff = self.last_time - self.first_time
             return diff / num_intervals
+
+    def avg_seconds_per_rotoselect_callback(self) -> float:
+        # Behavior is different, thus the different name,
+        # but the calculation is identical.
+        return self.avg_seconds_per_circuit_run()
 
     def eight_error_plus_hours(self, value: float) -> float:
         err = relative_error(value)

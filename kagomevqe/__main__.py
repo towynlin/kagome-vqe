@@ -1,10 +1,11 @@
 from kagomevqe import (
     KagomeExpressibleJosephsonSampler,
     KagomeHamiltonian,
-    Rotosolve,
+    RotoselectVQE,
     VQELog,
     relative_error,
 )
+import matplotlib.pyplot as plt
 import numpy as np
 from qiskit.algorithms.minimum_eigensolvers import VQE
 from qiskit_ibm_runtime import QiskitRuntimeService, Session, Estimator, Options
@@ -26,12 +27,13 @@ options.resilience_level = 2
 options.optimization_level = 3
 
 if sys.argv[1] == "simulator":
-    print("Running on the IBM statevector simulator")
-    backend = "simulator_statevector"
+    print("Running on the IBM QASM simulator")
+    backend = "ibmq_qasm_simulator"
 elif sys.argv[1] == "guadalupe":
     backend = "ibmq_guadalupe"
     print("Running on IBM Guadalupe")
-    options.resilience_level = 3
+    # Mar 15 in slack Vishal said not recommended, can lead to memory errors
+    # options.resilience_level = 3
 else:
     print(f"Invalid run location argument: {sys.argv[1]}")
     print("Valid options are: local, simulator, guadalupe")
@@ -41,7 +43,6 @@ log = VQELog()
 ansatz = KagomeExpressibleJosephsonSampler()
 hamiltonian = KagomeHamiltonian.pauli_sum_op()
 x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
-optimizer = Rotosolve()
 service = QiskitRuntimeService(
     channel="ibm_quantum",
     instance="ibm-q-community/ibmquantumawards/open-science-22",
@@ -51,12 +52,11 @@ with Session(service=service, backend=backend) as session:
     print(f"{t} Starting session")
     start = time()
     estimator = Estimator(session=session, options=options)
-    vqe = VQE(
+    vqe = RotoselectVQE(
         estimator=estimator,
         ansatz=ansatz,
-        optimizer=optimizer,
         initial_point=x0,  # type: ignore
-        callback=log.update,
+        callback=log.rotoselect_update,
     )
     try:
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
@@ -75,3 +75,12 @@ with Session(service=service, backend=backend) as session:
 
     rel_error = relative_error(measured)
     print(f"Relative error: {rel_error}")
+
+plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
+plt.plot(log.values, color="purple", lw=2, label="RotoselectVQE")
+plt.ylabel("Energy")
+plt.xlabel("Iterations (gates optimized)")
+plt.axhline(y=-18.0, color="tab:red", ls="--", lw=2, label="Target: -18.0")
+plt.legend()
+plt.grid()
+plt.show()

@@ -41,7 +41,7 @@ class KagomeExpressibleJosephsonSampler(QuantumCircuit):
             [(1, 2), (3, 5), (8, 11), (14, 13), (12, 10), (7, 4)],
             [(2, 3), (5, 8), (11, 14), (13, 12), (10, 7), (4, 1)],
         ]
-        c11 = TwoLocal(
+        self += TwoLocal(
             16,
             ["ry", "rz"],
             "cx",
@@ -49,7 +49,10 @@ class KagomeExpressibleJosephsonSampler(QuantumCircuit):
             reps=6,
             skip_unentangled_qubits=True,
             skip_final_rotation_layer=True,
-        )
-        c11_trans = transpile(c11, backend=FakeGuadalupeV2())
+        ).decompose()
+
+    def transpiled(self) -> QuantumCircuit:
+        c11_trans = transpile(self, backend=FakeGuadalupeV2())
+        # Narrow the type
         assert isinstance(c11_trans, QuantumCircuit)
-        self.append(c11_trans.to_instruction(), range(16))
+        return c11_trans
