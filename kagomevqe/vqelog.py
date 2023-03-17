@@ -51,7 +51,7 @@ class VQELog:
         t = strftime("%m/%d %H:%M:%S%z")
         asprcb = self.avg_seconds_per_rotoselect_callback()
         print(
-            f"{t} Callback {callback_count} (run count: {run_count})\tenergy: {energy: 08.04f}\tgate {d}: {gate_name}\tavg sec/run: {asprcb:05.02f}",
+            f"{t} Callback {callback_count} (run count: {run_count})\tenergy: {energy: 012.08f}\tgate {d}: {gate_name}\tavg sec/cb: {asprcb:05.02f}",
             flush=True,
         )
         if callback_count % 12 == 0:

@@ -7,7 +7,10 @@ from kagomevqe import (
 )
 import matplotlib.pyplot as plt
 import numpy as np
-from qiskit.algorithms.minimum_eigensolvers import VQE
+from qiskit.primitives import (
+    BaseEstimator,
+    Estimator as LocalEstimator,
+)
 from qiskit_ibm_runtime import QiskitRuntimeService, Session, Estimator, Options
 from qiskit_ibm_runtime.options import EnvironmentOptions, TranspilationOptions
 import sys
@@ -17,7 +20,7 @@ from time import time, strftime
 if len(sys.argv) < 2:
     print("You must provide one command line argument to")
     print("specify where to run the quantum circuits.")
-    print("Valid options are: simulator, guadalupe")
+    print("Valid options are: local, simulator, guadalupe")
     sys.exit(2)
 
 options = Options()
@@ -26,7 +29,12 @@ options.environment = EnvironmentOptions(log_level="DEBUG")
 options.resilience_level = 2
 options.optimization_level = 3
 
-if sys.argv[1] == "simulator":
+LOCAL = False
+backend = ""
+if sys.argv[1] == "local":
+    print("Running locally")
+    LOCAL = True
+elif sys.argv[1] == "simulator":
     print("Running on the IBM QASM simulator")
     backend = "ibmq_qasm_simulator"
 elif sys.argv[1] == "guadalupe":
@@ -43,15 +51,12 @@ log = VQELog()
 ansatz = KagomeExpressibleJosephsonSampler()
 hamiltonian = KagomeHamiltonian.pauli_sum_op()
 x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
-service = QiskitRuntimeService(
-    channel="ibm_quantum",
-    instance="ibm-q-community/ibmquantumawards/open-science-22",
-)
-with Session(service=service, backend=backend) as session:
+
+
+def execute_timed(estimator: BaseEstimator, session: Session | None = None):
     t = strftime("%m/%d %H:%M:%S%z")
-    print(f"{t} Starting session")
+    print(f"{t} Starting")
     start = time()
-    estimator = Estimator(session=session, options=options)
     vqe = RotoselectVQE(
         estimator=estimator,
         ansatz=ansatz,
@@ -70,11 +75,26 @@ with Session(service=service, backend=backend) as session:
         result = f"Interrupted.\nLast best value: {measured}\nLast params: {log.parameters[-1]}"
 
     end = time()
-    print(f"Mitigated result for session {session.session_id}: {result}")
+    session_str = ""
+    if session is not None:
+        session_str = f" for session {session.session_id}"
+    print(f"Result{session_str}: {result}")
     print(f"Execution time (s): {end - start:.2f}")
 
     rel_error = relative_error(measured)
     print(f"Relative error: {rel_error}")
+
+
+if LOCAL:
+    execute_timed(LocalEstimator())
+else:
+    service = QiskitRuntimeService(
+        channel="ibm_quantum",
+        instance="ibm-q-community/ibmquantumawards/open-science-22",
+    )
+    with Session(service=service, backend=backend) as session:
+        estimator = Estimator(session=session, options=options)
+        execute_timed(estimator, session)
 
 plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
 plt.plot(log.values, color="purple", lw=2, label="RotoselectVQE")

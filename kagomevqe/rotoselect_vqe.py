@@ -1,4 +1,5 @@
 from kagomevqe import RotoselectTranslator
+from kagomevqe.vqelog import relative_error
 import logging
 import numpy as np
 from qiskit import QuantumCircuit
@@ -55,7 +56,9 @@ class RotoselectVQE(VQE):
         run_count = 0
         callback_count = 0
         minimized_energy = 99999
-        for _ in range(20):
+        updates_skipped = 0
+        should_stop = False
+        while not should_stop:
             for d in range(D):
                 circuits = self._get_circuit_structure_variants(d)
                 assert len(circuits) == batch_size
@@ -143,29 +146,44 @@ class RotoselectVQE(VQE):
                 logger.debug(f"minima = {minima}")
                 best_gate = np.argmin(minima)
                 logger.debug(f"best_gate = {best_gate}")
-                minimized_energy = minima[best_gate]
-                print(
-                    f"checking energy extrapolation: {minima}, best gate: {best_gate}"
-                )
-                new_theta = -HALF_PI - B[best_gate]
-                if new_theta <= -np.pi:
-                    new_theta += 2 * np.pi
-                logger.debug(f"new_theta = {new_theta}")
 
-                gate_choices = [RXGate, RYGate, RZGate]
-                self._roto_trans.replacement_gate = gate_choices[best_gate]
-                self._roto_trans.parameter_index = d
-                self.ansatz = self._roto_trans(self.ansatz)
-
-                indices_to_update = np.array(d + D * np.array(range(batch_size)))
-                𝜃[indices_to_update] = new_theta
-
-                if self.callback is not None:
-                    gate_name = ["rx", "ry", "rz"][best_gate]
-                    callback_count += 1
-                    self.callback(
-                        callback_count, run_count, d, gate_name, 𝜃[:D], minimized_energy
+                if minima[best_gate] > minimized_energy + 0.1:
+                    logger.info(
+                        f"Skipping update of gate {d} because it would significantly raise the minimized energy"
                     )
+                    updates_skipped += 1
+                    if updates_skipped >= D:
+                        should_stop = True
+                else:
+                    updates_skipped = 0
+                    minimized_energy = minima[best_gate]
+                    new_theta = -HALF_PI - B[best_gate]
+                    if new_theta <= -np.pi:
+                        new_theta += 2 * np.pi
+                    logger.debug(f"new_theta = {new_theta}")
+
+                    gate_choices = [RXGate, RYGate, RZGate]
+                    self._roto_trans.replacement_gate = gate_choices[best_gate]
+                    self._roto_trans.parameter_index = d
+                    self.ansatz = self._roto_trans(self.ansatz)
+
+                    indices_to_update = np.array(d + D * np.array(range(batch_size)))
+                    𝜃[indices_to_update] = new_theta
+
+                    if self.callback is not None:
+                        gate_name = ["rx", "ry", "rz"][best_gate]
+                        callback_count += 1
+                        self.callback(
+                            callback_count,
+                            run_count,
+                            d,
+                            gate_name,
+                            𝜃[:D],
+                            minimized_energy,
+                        )
+
+            if relative_error(minimized_energy) < 0.0001:
+                should_stop = True
 
         optimizer_time = time() - start_time
         optimizer_result = OptimizerResult()
