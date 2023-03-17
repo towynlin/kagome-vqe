@@ -52,13 +52,8 @@ class RotoselectVQE(VQE):
         run_count = 0
         callback_count = 0
         minimized_energy = 99999
-        greatest_allowed_increase = 99999
-        greatest_allowed_decrease = -99999
-        updates_skipped = 0
         should_stop = False
         while not should_stop:
-            greatest_increase = 0
-            greatest_decrease = 0
             for d in range(D):
                 circuits = self._get_circuit_structure_variants(d)
                 assert len(circuits) == batch_size
@@ -119,7 +114,6 @@ class RotoselectVQE(VQE):
                     )
                     / 2
                 )
-                print(f"C = {C}")
                 y = np.array(
                     [
                         2 * energies[0] - energies[1] - energies[2],
@@ -127,7 +121,6 @@ class RotoselectVQE(VQE):
                         2 * energies[0] - energies[5] - energies[6],
                     ]
                 )
-                print(f"y = {y}")
                 x = np.array(
                     [
                         energies[1] - energies[2],
@@ -135,51 +128,31 @@ class RotoselectVQE(VQE):
                         energies[5] - energies[6],
                     ]
                 )
-                print(f"x = {x}")
-                if np.all(x != 0):
-                    print(f"y/x = {y/x}")
                 B = np.arctan2(y, x)
-                print(f"B = {B}")
                 A = np.sqrt(np.square(y) + np.square(x)) / 2
-                print(f"A = {A}")
                 minima = C - A
                 print(f"minima = {minima}")
 
-                # In case of multiple minima, argmin returns the first.
-                # So we organize results in order rz, ry, rx
-                # since rz is the native gate on guadalupe.
+                # In case of multiple equal minima, argmin returns the first.
+                # So we organize results in order of increasing transpiled depth:
+                # [rz, ry, rx] since rz is the native rotation gate on guadalupe.
                 best_gate = np.argmin(minima)
                 print(f"best_gate = {best_gate}")
 
-                gate_name = "same"
-                delta = minima[best_gate] - minimized_energy
-                if delta > greatest_allowed_increase or delta < greatest_allowed_decrease:
-                    print(
-                        f"Skipping update of gate {d} because it would significantly change the minimized energy"
-                    )
-                    updates_skipped += 1
-                    if updates_skipped >= D:
-                        should_stop = True
-                    new_theta = 𝜃[d + D * 7]
-                else:
-                    updates_skipped = 0
-                    if delta > greatest_increase:
-                        greatest_increase = delta
-                    if delta < greatest_decrease:
-                        greatest_decrease = delta
+                gate_name = ["rz", "ry", "rx"][best_gate]
+                minimized_energy = minima[best_gate]
+                new_theta = -HALF_PI - B[best_gate]
+                if new_theta <= -np.pi:
+                    new_theta += 2 * np.pi
 
-                    gate_name = ["rz", "ry", "rx"][best_gate]
-                    minimized_energy = minima[best_gate]
-                    new_theta = -HALF_PI - B[best_gate]
-                    if new_theta <= -np.pi:
-                        new_theta += 2 * np.pi
+                gate_choices = [RZGate, RYGate, RXGate]
+                self._roto_trans.replacement_gate = gate_choices[best_gate]
+                self._roto_trans.parameter_index = d
+                self.ansatz = self._roto_trans(self.ansatz)
 
-                    gate_choices = [RZGate, RYGate, RXGate]
-                    self._roto_trans.replacement_gate = gate_choices[best_gate]
-                    self._roto_trans.parameter_index = d
-                    self.ansatz = self._roto_trans(self.ansatz)
-
-                print(f"new_theta = {new_theta}")
+                print(
+                    f"new_theta = {new_theta}, old_theta = {𝜃[d + D * 7]} (maybe different gate)"
+                )
                 indices_to_update = np.array(d + D * np.array(range(batch_size)))
                 𝜃[indices_to_update] = new_theta
 
@@ -193,18 +166,6 @@ class RotoselectVQE(VQE):
                         𝜃[:D],
                         minimized_energy,
                     )
-
-            print(
-                f"Updating greatest allowed increase from {greatest_allowed_increase} to {greatest_increase}"
-            )
-            greatest_allowed_increase = greatest_increase
-            print(
-                f"Updating greatest allowed decrease from {greatest_allowed_decrease} to {greatest_decrease}"
-            )
-            greatest_allowed_decrease = greatest_decrease
-
-            if relative_error(minimized_energy) < 0.0001:
-                should_stop = True
 
         optimizer_time = time() - start_time
         optimizer_result = OptimizerResult()

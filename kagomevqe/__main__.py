@@ -101,10 +101,26 @@ else:
         execute_timed(estimator, session)
 
 plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
+
+prefix = strftime("data/fig-%m-%d-%H-%M-%S%z")
 plt.plot(log.values, color="purple", lw=2, label="RotoselectVQE")
 plt.ylabel("Energy")
 plt.xlabel("Iterations (gates optimized)")
 plt.axhline(y=-18.0, color="tab:red", ls="--", lw=2, label="Target: -18.0")
 plt.legend()
 plt.grid()
-plt.show()
+plt.savefig(f"{prefix}-values")
+plt.clf()
+
+plt.hist(log.values)
+plt.ylabel("Number of points")
+plt.xlabel("Energy")
+plt.grid()
+plt.savefig(f"{prefix}-hist")
+plt.clf()
+
+plt.hist(log.values, density=True)
+plt.ylabel("Density")
+plt.xlabel("Energy")
+plt.grid()
+plt.savefig(f"{prefix}-hist-density")
