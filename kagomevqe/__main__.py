@@ -1,5 +1,6 @@
 from kagomevqe import (
     KagomeExpressibleJosephsonSampler,
+    KagomeRotoselectShallow,
     KagomeHamiltonian,
     RotoselectVQE,
     VQELog,
@@ -71,6 +72,9 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
             measured = log.values[-1]
     except Exception as exc:
         print(f"\nException: {exc}\n")
+        measured = log.values[-1]
+        result = f"Exception.\nLast best value: {measured}\nLast params: {log.parameters[-1]}"
+    except KeyboardInterrupt as exc:
         measured = log.values[-1]
         result = f"Interrupted.\nLast best value: {measured}\nLast params: {log.parameters[-1]}"
 

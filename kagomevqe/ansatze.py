@@ -56,3 +56,31 @@ class KagomeExpressibleJosephsonSampler(QuantumCircuit):
         # Narrow the type
         assert isinstance(c11_trans, QuantumCircuit)
         return c11_trans
+
+
+class KagomeRotoselectShallow(QuantumCircuit):
+    """An adaptation of KagomeExpressibleJosephsonSampler
+    removing parameterized gates for use with Rotoselect.
+    """
+
+    def __init__(self):
+        super().__init__(16)
+        entangler_map = [
+            [(1, 2), (3, 5), (8, 11), (14, 13), (12, 10), (7, 4)],
+            [(2, 3), (5, 8), (11, 14), (13, 12), (10, 7), (4, 1)],
+        ]
+        self += TwoLocal(
+            16,
+            "rz",
+            "cx",
+            entangler_map,
+            reps=6,
+            skip_unentangled_qubits=True,
+            skip_final_rotation_layer=True,
+        ).decompose()
+
+    def transpiled(self) -> QuantumCircuit:
+        c_optimized = transpile(self, backend=FakeGuadalupeV2())
+        # Narrow the type
+        assert isinstance(c_optimized, QuantumCircuit)
+        return c_optimized

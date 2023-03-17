@@ -1,4 +1,8 @@
-from .ansatze import KagomeEfficientSU2, KagomeExpressibleJosephsonSampler
+from .ansatze import (
+    KagomeEfficientSU2,
+    KagomeExpressibleJosephsonSampler,
+    KagomeRotoselectShallow,
+)
 from .heisenberg_model import HeisenbergModel
 from .kagome_hamiltonian import KagomeHamiltonian
 from .rotosolve import Rotosolve
@@ -11,6 +15,7 @@ __all__ = [
     "KagomeEfficientSU2",
     "KagomeExpressibleJosephsonSampler",
     "KagomeHamiltonian",
+    "KagomeRotoselectShallow",
     "RotoselectTranslator",
     "RotoselectVQE",
     "Rotosolve",
