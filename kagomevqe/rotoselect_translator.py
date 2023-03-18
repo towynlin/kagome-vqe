@@ -2,7 +2,7 @@ from qiskit.circuit import Gate
 from qiskit.circuit.library import RZGate, RYGate, RXGate
 from qiskit.dagcircuit import DAGCircuit, DAGOpNode
 from qiskit.transpiler import TransformationPass
-from typing import Type
+from typing import Tuple, Type
 
 
 class RotoselectTranslator(TransformationPass):
@@ -12,6 +12,9 @@ class RotoselectTranslator(TransformationPass):
         super().__init__()
         self.parameter_index = 0
         self.replacement_gate = RYGate
+        self._last_did_change = False
+        self._last_old_gate = "rz"
+        self._last_new_gate = "rz"
 
     @property
     def parameter_index(self) -> int:
@@ -28,6 +31,10 @@ class RotoselectTranslator(TransformationPass):
     @replacement_gate.setter
     def replacement_gate(self, value: Type[RZGate | RYGate | RXGate]) -> None:
         self._replacement_gate = value
+
+    @property
+    def last_substitution(self) -> Tuple[bool, str, str]:
+        return (self._last_did_change, self._last_old_gate, self._last_new_gate)
 
     def run(self, dag: DAGCircuit):
         """Run the pass."""
@@ -46,10 +53,18 @@ class RotoselectTranslator(TransformationPass):
                     raise NotImplementedError
 
                 if parameter_count == self.parameter_index:
-                    # This is the node to replace.
-                    param = gate.params[0]
-                    replacement = self.replacement_gate(param)
-                    dag.substitute_node(node, replacement)
+                    if isinstance(gate, self.replacement_gate):
+                        self._last_did_change = False
+                        self._last_old_gate = gate.name
+                        self._last_new_gate = gate.name
+                    else:
+                        # This is the node to replace.
+                        param = gate.params[0]
+                        replacement = self.replacement_gate(param)
+                        dag.substitute_node(node, replacement)
+                        self._last_did_change = True
+                        self._last_old_gate = gate.name
+                        self._last_new_gate = replacement.name
 
                 parameter_count += num_params
 

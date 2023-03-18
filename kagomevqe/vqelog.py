@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import numpy as np
 from time import time, strftime
-from typing import Any
+from typing import Any, Tuple
 
 
 def relative_error(val: float) -> float:
@@ -40,7 +40,7 @@ class VQELog:
         self,
         iteration: int,
         d: int,
-        gate_name: str,
+        gate_change: Tuple[bool, str, str],
         parameters: np.ndarray,
         energy: float,
     ):
@@ -50,7 +50,7 @@ class VQELog:
         t = strftime("%m/%d %H:%M:%S%z")
         asprcb = self.avg_seconds_per_rotoselect_callback()
         print(
-            f"{t} Iteration {iteration} gate {d}: {gate_name}\tenergy: {energy: 012.08f}\tavg sec/cb: {asprcb:05.02f}",
+            f"{t} Iteration {iteration} gate {d}: {gate_change}\tenergy: {energy: 012.08f}\tavg sec/cb: {asprcb:05.02f}",
             flush=True,
         )
         if len(self.values) % 24 == 0:

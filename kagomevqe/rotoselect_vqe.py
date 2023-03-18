@@ -19,7 +19,8 @@ class RotoselectVQE(VQE):
         estimator: BaseEstimator,
         ansatz: QuantumCircuit,
         initial_point: Sequence[float],
-        callback: Callable[[int, int, str, np.ndarray, float], None] | None = None,
+        callback: Callable[[int, int, Tuple[bool, str, str], np.ndarray, float], None]
+        | None = None,
     ) -> None:
         """Mostly the same as VQE.
         There's no optimizer to pass.
@@ -72,7 +73,6 @@ class RotoselectVQE(VQE):
 
                 minima, B, best_gate = self._analyze_energies(energies)
 
-                gate_name = ["rz", "ry", "rx"][best_gate]
                 minimized_energy = minima[best_gate]
                 new_theta = -HALF_PI - B[best_gate]
                 if new_theta <= -np.pi:
@@ -94,7 +94,7 @@ class RotoselectVQE(VQE):
                     self.callback(
                         iteration,
                         d,
-                        gate_name,
+                        self._roto_trans.last_substitution,
                         𝜃[:D],
                         minimized_energy,
                     )
