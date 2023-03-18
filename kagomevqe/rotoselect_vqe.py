@@ -20,18 +20,13 @@ class RotoselectVQE(VQE):
         estimator: BaseEstimator,
         ansatz: QuantumCircuit,
         initial_point: Sequence[float],
-        callback: Callable[[int, int, int, int, str, np.ndarray, float], None]
-        | None = None,
+        callback: Callable[[int, int, str, np.ndarray, float], None] | None = None,
     ) -> None:
         """Mostly the same as VQE.
         There's no optimizer to pass.
-        The callback has 2 count integers instead of 1.
-        The first argument is callback_count.
-        The second is run_count, the number of times estimator.run has been called,
-        including retries after catching an exception.
-        The third int is the zero-based index of the iteration.
-        The fourth arg is the zero-based index of the parameterized gate that was optimized.
-        The fifth arg indicates which gate was selected, "rx", "ry", or "rz".
+        The first int arg is the zero-based index of the iteration.
+        The second int arg is the zero-based index of the parameterized gate that was optimized.
+        The third arg indicates which gate was selected, "rx", "ry", or "rz".
         We don't pass the metadata to the callback,
         and only the extrapolated minimized energy from each job is passed,
         not all the results of circuit evaluations.
@@ -71,40 +66,9 @@ class RotoselectVQE(VQE):
                 parameters = np.reshape(𝜃, (-1, D)).tolist()
                 assert len(parameters) == batch_size
 
-                estimator_result = None
-
-                try:
-                    job = self.estimator.run(
-                        circuits=circuits,
-                        observables=[operator] * batch_size,
-                        parameter_values=parameters,
-                    )
-                    run_count += 1
-                except Exception as exc:
-                    print(f"Caught exception calling estimator.run: {exc}")
-                    print(f"Retrying once...")
-                    job = self.estimator.run(
-                        circuits=circuits,
-                        observables=[operator] * batch_size,
-                        parameter_values=parameters,
-                    )
-                    run_count += 1
-
-                try:
-                    estimator_result = job.result()
-                except Exception as exc:
-                    print(f"Caught exception calling job.result: {exc}")
-                    print(f"Retrying the whole job once more...")
-                    job = self.estimator.run(
-                        circuits=circuits,
-                        observables=[operator] * batch_size,
-                        parameter_values=parameters,
-                    )
-                    run_count += 1
-                    estimator_result = job.result()
-
-                assert isinstance(estimator_result, EstimatorResult)
-                energies = estimator_result.values
+                energies = self._run_and_maybe_retry_estimator(
+                    circuits, [operator] * batch_size, parameters
+                )
                 print(f"energies = {energies}")
 
                 C = (
@@ -162,8 +126,6 @@ class RotoselectVQE(VQE):
                 if self.callback is not None:
                     callback_count += 1
                     self.callback(
-                        callback_count,
-                        run_count,
                         iteration,
                         d,
                         gate_name,
@@ -179,6 +141,44 @@ class RotoselectVQE(VQE):
         optimizer_result.x = 𝜃[:D]
 
         return self._build_vqe_result(self.ansatz, optimizer_result, [], optimizer_time)
+
+    def _run_and_maybe_retry_estimator(
+        self,
+        circuits: List[QuantumCircuit],
+        operators: Sequence[PauliSumOp],
+        parameters: Sequence[Sequence[float]],
+    ) -> np.ndarray:
+        estimator_result = EstimatorResult(np.array([]), [])
+
+        try:
+            job = self.estimator.run(
+                circuits=circuits,
+                observables=operators,
+                parameter_values=parameters,
+            )
+        except Exception as exc:
+            print(f"Caught exception calling estimator.run: {exc}")
+            print(f"Retrying once...")
+            job = self.estimator.run(
+                circuits=circuits,
+                observables=operators,
+                parameter_values=parameters,
+            )
+
+        try:
+            estimator_result = job.result()
+        except Exception as exc:
+            print(f"Caught exception calling job.result: {exc}")
+            print(f"Retrying the whole job once more...")
+            job = self.estimator.run(
+                circuits=circuits,
+                observables=operators,
+                parameter_values=parameters,
+            )
+            estimator_result = job.result()
+
+        assert isinstance(estimator_result, EstimatorResult)
+        return estimator_result.values
 
     def _get_circuit_structure_variants(self, d: int) -> List[QuantumCircuit]:
         # Set parameterized gate d to
