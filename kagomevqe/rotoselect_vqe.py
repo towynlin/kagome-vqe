@@ -1,5 +1,4 @@
 from kagomevqe import RotoselectTranslator
-from kagomevqe.vqelog import relative_error
 import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.algorithms.minimum_eigensolvers import VQE, VQEResult
@@ -8,7 +7,7 @@ from qiskit.circuit.library import RZGate, RYGate, RXGate
 from qiskit.opflow import PauliSumOp
 from qiskit.primitives import BaseEstimator, EstimatorResult
 from time import time
-from typing import Any, Callable, List, Sequence
+from typing import Callable, List, Sequence, Tuple
 
 
 HALF_PI = np.pi / 2
@@ -71,40 +70,7 @@ class RotoselectVQE(VQE):
                 )
                 print(f"energies = {energies}")
 
-                C = (
-                    np.array(
-                        [
-                            energies[1] + energies[2],
-                            energies[3] + energies[4],
-                            energies[5] + energies[6],
-                        ]
-                    )
-                    / 2
-                )
-                y = np.array(
-                    [
-                        2 * energies[0] - energies[1] - energies[2],
-                        2 * energies[0] - energies[3] - energies[4],
-                        2 * energies[0] - energies[5] - energies[6],
-                    ]
-                )
-                x = np.array(
-                    [
-                        energies[1] - energies[2],
-                        energies[3] - energies[4],
-                        energies[5] - energies[6],
-                    ]
-                )
-                B = np.arctan2(y, x)
-                A = np.sqrt(np.square(y) + np.square(x)) / 2
-                minima = C - A
-                # print(f"minima = {minima}")
-
-                # In case of multiple equal minima, argmin returns the first.
-                # So we organize results in order of increasing transpiled depth:
-                # [rz, ry, rx] since rz is the native rotation gate on guadalupe.
-                best_gate = np.argmin(minima)
-                # print(f"best_gate = {best_gate}")
+                minima, B, best_gate = self._analyze_energies(energies)
 
                 gate_name = ["rz", "ry", "rx"][best_gate]
                 minimized_energy = minima[best_gate]
@@ -112,8 +78,8 @@ class RotoselectVQE(VQE):
                 if new_theta <= -np.pi:
                     new_theta += 2 * np.pi
 
-                gate_choices = [RZGate, RYGate, RXGate]
-                self._roto_trans.replacement_gate = gate_choices[best_gate]
+                gate_types = [RZGate, RYGate, RXGate]
+                self._roto_trans.replacement_gate = gate_types[best_gate]
                 self._roto_trans.parameter_index = d
                 self.ansatz = self._roto_trans(self.ansatz)
 
@@ -179,6 +145,44 @@ class RotoselectVQE(VQE):
 
         assert isinstance(estimator_result, EstimatorResult)
         return estimator_result.values
+
+    def _analyze_energies(
+        self, energies: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
+        C = (
+            np.array(
+                [
+                    energies[1] + energies[2],
+                    energies[3] + energies[4],
+                    energies[5] + energies[6],
+                ]
+            )
+            / 2
+        )
+        y = np.array(
+            [
+                2 * energies[0] - energies[1] - energies[2],
+                2 * energies[0] - energies[3] - energies[4],
+                2 * energies[0] - energies[5] - energies[6],
+            ]
+        )
+        x = np.array(
+            [
+                energies[1] - energies[2],
+                energies[3] - energies[4],
+                energies[5] - energies[6],
+            ]
+        )
+        B = np.arctan2(y, x)
+        A = np.sqrt(np.square(y) + np.square(x)) / 2
+        minima = C - A
+
+        # In case of multiple equal minima, argmin returns the first.
+        # So we organize results in order of increasing transpiled depth:
+        # [rz, ry, rx] since rz is the native rotation gate on guadalupe.
+        best_gate = int(np.argmin(minima))
+
+        return (minima, B, best_gate)
 
     def _get_circuit_structure_variants(self, d: int) -> List[QuantumCircuit]:
         # Set parameterized gate d to
