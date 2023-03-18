@@ -20,7 +20,8 @@ class RotoselectVQE(VQE):
         estimator: BaseEstimator,
         ansatz: QuantumCircuit,
         initial_point: Sequence[float],
-        callback: Callable[[int, int, int, str, np.ndarray, float], None] | None = None,
+        callback: Callable[[int, int, int, int, str, np.ndarray, float], None]
+        | None = None,
     ) -> None:
         """Mostly the same as VQE.
         There's no optimizer to pass.
@@ -28,8 +29,9 @@ class RotoselectVQE(VQE):
         The first argument is callback_count.
         The second is run_count, the number of times estimator.run has been called,
         including retries after catching an exception.
-        The third int is the index of the parameterized gate that was optimized.
-        The fourth arg indicates which gate was selected, "rx", "ry", or "rz".
+        The third int is the zero-based index of the iteration.
+        The fourth arg is the zero-based index of the parameterized gate that was optimized.
+        The fifth arg indicates which gate was selected, "rx", "ry", or "rz".
         We don't pass the metadata to the callback,
         and only the extrapolated minimized energy from each job is passed,
         not all the results of circuit evaluations.
@@ -51,6 +53,7 @@ class RotoselectVQE(VQE):
         𝜃 = np.tile(x0, batch_size)
         run_count = 0
         callback_count = 0
+        iteration = 0
         minimized_energy = 99999
         should_stop = False
         while not should_stop:
@@ -131,13 +134,13 @@ class RotoselectVQE(VQE):
                 B = np.arctan2(y, x)
                 A = np.sqrt(np.square(y) + np.square(x)) / 2
                 minima = C - A
-                print(f"minima = {minima}")
+                # print(f"minima = {minima}")
 
                 # In case of multiple equal minima, argmin returns the first.
                 # So we organize results in order of increasing transpiled depth:
                 # [rz, ry, rx] since rz is the native rotation gate on guadalupe.
                 best_gate = np.argmin(minima)
-                print(f"best_gate = {best_gate}")
+                # print(f"best_gate = {best_gate}")
 
                 gate_name = ["rz", "ry", "rx"][best_gate]
                 minimized_energy = minima[best_gate]
@@ -161,11 +164,14 @@ class RotoselectVQE(VQE):
                     self.callback(
                         callback_count,
                         run_count,
+                        iteration,
                         d,
                         gate_name,
                         𝜃[:D],
                         minimized_energy,
                     )
+
+            iteration += 1
 
         optimizer_time = time() - start_time
         optimizer_result = OptimizerResult()

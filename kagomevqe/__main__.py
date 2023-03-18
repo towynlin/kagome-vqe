@@ -68,6 +68,8 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
         if result.eigenvalue is not None:
             measured = result.eigenvalue.real
+            fname = strftime("data/fig-%m-%d-%H-%M-%S%z-ansatz")
+            result.optimal_circuit.draw("mpl", filename=fname)
         else:
             measured = log.values[-1]
     except Exception as exc:
@@ -100,27 +102,23 @@ else:
         estimator = Estimator(session=session, options=options)
         execute_timed(estimator, session)
 
+t = strftime("%m-%d-%H-%M-%S%z")
+np.save(f"data/{t}-values", log.values)
+
 plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
 
-prefix = strftime("data/fig-%m-%d-%H-%M-%S%z")
 plt.plot(log.values, color="purple", lw=2, label="RotoselectVQE")
 plt.ylabel("Energy")
 plt.xlabel("Iterations (gates optimized)")
 plt.axhline(y=-18.0, color="tab:red", ls="--", lw=2, label="Target: -18.0")
 plt.legend()
 plt.grid()
-plt.savefig(f"{prefix}-values")
+plt.savefig(f"data/{t}-fig-values")
+
 plt.clf()
 
-plt.hist(log.values)
-plt.ylabel("Number of points")
-plt.xlabel("Energy")
-plt.grid()
-plt.savefig(f"{prefix}-hist")
-plt.clf()
-
-plt.hist(log.values, density=True)
+plt.hist(log.values, bins=24, density=True)
 plt.ylabel("Density")
 plt.xlabel("Energy")
 plt.grid()
-plt.savefig(f"{prefix}-hist-density")
+plt.savefig(f"data/{t}-fig-hist-density")

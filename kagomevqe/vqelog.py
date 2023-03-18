@@ -40,6 +40,7 @@ class VQELog:
         self,
         callback_count: int,
         run_count: int,
+        iteration: int,
         d: int,
         gate_name: str,
         parameters: np.ndarray,
@@ -51,10 +52,10 @@ class VQELog:
         t = strftime("%m/%d %H:%M:%S%z")
         asprcb = self.avg_seconds_per_rotoselect_callback()
         print(
-            f"{t} Callback {callback_count} (run count: {run_count})\tenergy: {energy: 012.08f}\tgate {d}: {gate_name}\tavg sec/cb: {asprcb:05.02f}",
+            f"{t} Callback {callback_count} (runs: {run_count})\tenergy: {energy: 012.08f}\titer {iteration} gate {d}: {gate_name}\tavg sec/cb: {asprcb:05.02f}",
             flush=True,
         )
-        if callback_count % 12 == 0:
+        if callback_count % 24 == 0:
             print(f"\nParameters: {parameters}\n")
 
     def avg_seconds_per_circuit_run(self) -> float:
