@@ -5,3 +5,4 @@ __pycache__
 .~lock.*
 .DS_Store
 data
+scratch*
