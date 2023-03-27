@@ -1,10 +1,8 @@
 from kagomevqe import (
-    KagomeExpressibleJosephsonSampler,
-    KagomeRotoselectShallow,
+    GuadalupeExpressibleJosephsonSampler,
     KagomeHamiltonian,
+    RotoselectRepository,
     RotoselectVQE,
-    VQELog,
-    relative_error,
 )
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +11,7 @@ from qiskit.primitives import (
     Estimator as LocalEstimator,
 )
 from qiskit_ibm_runtime import QiskitRuntimeService, Session, Estimator, Options
-from qiskit_ibm_runtime.options import EnvironmentOptions, TranspilationOptions
+from qiskit_ibm_runtime.options import EnvironmentOptions
 import sys
 from time import time, strftime
 
@@ -26,7 +24,6 @@ if len(sys.argv) < 2:
 
 options = Options()
 options.environment = EnvironmentOptions(log_level="DEBUG")
-# options.transpilation = TranspilationOptions(skip_transpilation=True)
 options.resilience_level = 2
 options.optimization_level = 3
 
@@ -41,17 +38,19 @@ elif sys.argv[1] == "simulator":
 elif sys.argv[1] == "guadalupe":
     backend = "ibmq_guadalupe"
     print("Running on IBM Guadalupe")
-    # Mar 15 in slack Vishal said not recommended, can lead to memory errors
-    # options.resilience_level = 3
 else:
     print(f"Invalid run location argument: {sys.argv[1]}")
     print("Valid options are: local, simulator, guadalupe")
     sys.exit(2)
 
-log = VQELog()
-ansatz = KagomeRotoselectShallow()
+repo = RotoselectRepository()
+ansatz = GuadalupeExpressibleJosephsonSampler()
 hamiltonian = KagomeHamiltonian.pauli_sum_op()
 x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
+
+
+def relative_error(val: float) -> float:
+    return abs((-18.0 - val) / -18.0)
 
 
 def execute_timed(estimator: BaseEstimator, session: Session | None = None):
@@ -62,7 +61,7 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
         estimator=estimator,
         ansatz=ansatz,
         initial_point=x0,  # type: ignore
-        callback=log.rotoselect_update,
+        repository=repo,
     )
     try:
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
@@ -71,14 +70,14 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
             fname = strftime("data/%m-%d-%H-%M-%S%z-fig-ansatz")
             result.optimal_circuit.draw("mpl", filename=fname)
         else:
-            measured = log.values[-1]
+            measured = repo.get_best_result()[0]
     except Exception as exc:
         print(f"\nException: {exc}\n")
-        measured = log.values[-1]
-        result = f"Exception.\nLast best value: {measured}\nLast params: {log.parameters[-1]}"
+        measured, params, gates = repo.get_best_result()
+        result = f"Exception.\nBest value: {measured}\nBest params: {params}\nBest gates: {gates}"
     except KeyboardInterrupt as exc:
-        measured = log.values[-1]
-        result = f"Interrupted.\nLast best value: {measured}\nLast params: {log.parameters[-1]}"
+        measured, params, gates = repo.get_best_result()
+        result = f"Interrupted.\nBest value: {measured}\nBest params: {params}\nBest gates: {gates}"
 
     end = time()
     session_str = ""
@@ -103,12 +102,14 @@ else:
         execute_timed(estimator, session)
 
 t = strftime("%m-%d-%H-%M-%S%z")
-np.save(f"data/{t}-values", log.values)
+np.save(f"data/{t}-values", repo.values)
+np.save(f"data/{t}-params", repo.parameters)
+np.save(f"data/{t}-gates", repo.gate_names)
 
 plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
 
 plt.clf()
-plt.plot(log.values, color="purple", lw=2, label="RotoselectVQE")
+plt.plot(repo.values, color="purple", lw=2, label="RotoselectVQE")
 plt.ylabel("Energy")
 plt.xlabel("Iterations (gates optimized)")
 plt.axhline(y=-18.0, color="tab:red", ls="--", lw=2, label="Target: -18.0")
@@ -117,7 +118,7 @@ plt.grid()
 plt.savefig(f"data/{t}-fig-values")
 
 plt.clf()
-plt.hist(log.values, bins=24, density=True)
+plt.hist(repo.values, bins=30, density=True)
 plt.ylabel("Density")
 plt.xlabel("Energy")
 plt.grid()
