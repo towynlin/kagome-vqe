@@ -49,7 +49,7 @@ else:
     sys.exit(2)
 
 log = VQELog()
-ansatz = KagomeExpressibleJosephsonSampler()
+ansatz = KagomeRotoselectShallow()
 hamiltonian = KagomeHamiltonian.pauli_sum_op()
 x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
 
@@ -68,7 +68,7 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
         if result.eigenvalue is not None:
             measured = result.eigenvalue.real
-            fname = strftime("data/fig-%m-%d-%H-%M-%S%z-ansatz")
+            fname = strftime("data/%m-%d-%H-%M-%S%z-fig-ansatz")
             result.optimal_circuit.draw("mpl", filename=fname)
         else:
             measured = log.values[-1]
@@ -107,6 +107,7 @@ np.save(f"data/{t}-values", log.values)
 
 plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
 
+plt.clf()
 plt.plot(log.values, color="purple", lw=2, label="RotoselectVQE")
 plt.ylabel("Energy")
 plt.xlabel("Iterations (gates optimized)")
@@ -116,7 +117,6 @@ plt.grid()
 plt.savefig(f"data/{t}-fig-values")
 
 plt.clf()
-
 plt.hist(log.values, bins=24, density=True)
 plt.ylabel("Density")
 plt.xlabel("Energy")

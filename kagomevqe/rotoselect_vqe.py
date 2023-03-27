@@ -19,7 +19,9 @@ class RotoselectVQE(VQE):
         estimator: BaseEstimator,
         ansatz: QuantumCircuit,
         initial_point: Sequence[float],
-        callback: Callable[[int, int, Tuple[bool, str, str], np.ndarray, float], None]
+        callback: Callable[
+            [int, int, Tuple[bool, str, str], List[str], np.ndarray, float], None
+        ]
         | None = None,
     ) -> None:
         """Mostly the same as VQE.
@@ -46,10 +48,11 @@ class RotoselectVQE(VQE):
         x0 = np.array(self.initial_point)
         D = len(x0)
         𝜃 = np.tile(x0, batch_size)
-        run_count = 0
-        callback_count = 0
         iteration = 0
         minimized_energy = 99999
+        absolute_lowest_energy_so_far = minimized_energy
+        absolute_lowest_params = 𝜃[:D]
+        absolute_lowest_gates = []
         should_stop = False
         while not should_stop:
             for d in range(D):
@@ -82,29 +85,48 @@ class RotoselectVQE(VQE):
                 self._roto_trans.replacement_gate = gate_types[best_gate]
                 self._roto_trans.parameter_index = d
                 self.ansatz = self._roto_trans(self.ansatz)
+                did_change, _, _ = self._roto_trans.last_substitution
+                same_different = "same"
+                if did_change:
+                    same_different = "different"
 
                 print(
-                    f"new_theta = {new_theta}, old_theta = {𝜃[d + D * 7]} (maybe different gate)"
+                    f"new_theta = {new_theta}, old_theta = {𝜃[d + D * 7]} ({same_different} gate)"
                 )
                 indices_to_update = np.array(d + D * np.array(range(batch_size)))
                 𝜃[indices_to_update] = new_theta
 
+                if minimized_energy < absolute_lowest_energy_so_far:
+                    absolute_lowest_energy_so_far = minimized_energy
+                    absolute_lowest_params = 𝜃[:D]
+                    absolute_lowest_gates = (
+                        self._roto_trans._last_parameterized_gate_name_list
+                    )
+
                 if self.callback is not None:
-                    callback_count += 1
                     self.callback(
                         iteration,
                         d,
                         self._roto_trans.last_substitution,
+                        self._roto_trans._last_parameterized_gate_name_list,
                         𝜃[:D],
                         minimized_energy,
                     )
 
             iteration += 1
+            if iteration >= 1:
+                print(f"\nBest so far:\n")
+                print(absolute_lowest_energy_so_far)
+                print(absolute_lowest_params)
+                print(absolute_lowest_gates)
+            if iteration >= 9:
+                should_stop = True
 
         optimizer_time = time() - start_time
         optimizer_result = OptimizerResult()
-        optimizer_result.fun = minimized_energy
-        optimizer_result.x = 𝜃[:D]
+        optimizer_result.fun = absolute_lowest_energy_so_far
+        optimizer_result.x = absolute_lowest_params
+        print(f"Final absolute lowest gates: {absolute_lowest_gates}")
 
         return self._build_vqe_result(self.ansatz, optimizer_result, [], optimizer_time)
 
@@ -114,8 +136,6 @@ class RotoselectVQE(VQE):
         operators: Sequence[PauliSumOp],
         parameters: Sequence[Sequence[float]],
     ) -> np.ndarray:
-        estimator_result = EstimatorResult(np.array([]), [])
-
         try:
             job = self.estimator.run(
                 circuits=circuits,
@@ -143,7 +163,10 @@ class RotoselectVQE(VQE):
             )
             estimator_result = job.result()
 
-        assert isinstance(estimator_result, EstimatorResult)
+        if not isinstance(estimator_result, EstimatorResult):
+            print(f"Estimator failure. No result. Creating empty one.")
+            estimator_result = EstimatorResult(np.array([]), [])
+
         return estimator_result.values
 
     def _analyze_energies(

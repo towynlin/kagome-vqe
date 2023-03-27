@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import numpy as np
 from time import time, strftime
-from typing import Any, Tuple
+from typing import Any, List, Tuple
 
 
 def relative_error(val: float) -> float:
@@ -41,6 +41,7 @@ class VQELog:
         iteration: int,
         d: int,
         gate_change: Tuple[bool, str, str],
+        gate_names: List[str],
         parameters: np.ndarray,
         energy: float,
     ):
@@ -55,6 +56,7 @@ class VQELog:
         )
         if len(self.values) % 24 == 0:
             print(f"\nParameters: {parameters}\n")
+            print(f"Gates: {gate_names}\n")
 
     def avg_seconds_per_circuit_run(self) -> float:
         num_intervals = len(self.values) - 1

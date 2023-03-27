@@ -2,7 +2,7 @@ from qiskit.circuit import Gate
 from qiskit.circuit.library import RZGate, RYGate, RXGate
 from qiskit.dagcircuit import DAGCircuit, DAGOpNode
 from qiskit.transpiler import TransformationPass
-from typing import Tuple, Type
+from typing import List, Tuple, Type
 
 
 class RotoselectTranslator(TransformationPass):
@@ -15,6 +15,7 @@ class RotoselectTranslator(TransformationPass):
         self._last_did_change = False
         self._last_old_gate = "rz"
         self._last_new_gate = "rz"
+        self._last_parameterized_gate_name_list = []
 
     @property
     def parameter_index(self) -> int:
@@ -36,10 +37,15 @@ class RotoselectTranslator(TransformationPass):
     def last_substitution(self) -> Tuple[bool, str, str]:
         return (self._last_did_change, self._last_old_gate, self._last_new_gate)
 
+    @property
+    def parameterized_gate_name_list(self) -> List[str]:
+        return self._last_parameterized_gate_name_list
+
     def run(self, dag: DAGCircuit):
         """Run the pass."""
 
         parameter_count = 0
+        self._last_parameterized_gate_name_list = []
         for node in dag.gate_nodes():
             # Type narrowing
             assert isinstance(node, DAGOpNode)
@@ -65,6 +71,9 @@ class RotoselectTranslator(TransformationPass):
                         self._last_did_change = True
                         self._last_old_gate = gate.name
                         self._last_new_gate = replacement.name
+                    self._last_parameterized_gate_name_list.append(self._last_new_gate)
+                else:
+                    self._last_parameterized_gate_name_list.append(gate.name)
 
                 parameter_count += num_params
 
