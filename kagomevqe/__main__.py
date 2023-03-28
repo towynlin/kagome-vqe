@@ -1,5 +1,6 @@
 from kagomevqe import (
     GuadalupeExpressibleJosephsonSampler,
+    IonQEstimator,
     KagomeHamiltonian,
     RotoselectRepository,
     RotoselectVQE,
@@ -12,6 +13,8 @@ from qiskit.primitives import (
 )
 from qiskit_ibm_runtime import QiskitRuntimeService, Session, Estimator, Options
 from qiskit_ibm_runtime.options import EnvironmentOptions
+from qiskit_ionq import IonQProvider
+from qiskit_ionq.ionq_backend import IonQBackend
 import sys
 from time import time, strftime
 
@@ -19,7 +22,7 @@ from time import time, strftime
 if len(sys.argv) < 2:
     print("You must provide one command line argument to")
     print("specify where to run the quantum circuits.")
-    print("Valid options are: local, simulator, guadalupe")
+    print("Valid options are: local, simulator, guadalupe, ionq")
     sys.exit(2)
 
 options = Options()
@@ -28,16 +31,20 @@ options.resilience_level = 2
 options.optimization_level = 3
 
 LOCAL = False
+IONQ = False
 backend = ""
 if sys.argv[1] == "local":
-    print("Running locally")
     LOCAL = True
+    print("Running locally")
 elif sys.argv[1] == "simulator":
-    print("Running on the IBM QASM simulator")
     backend = "ibmq_qasm_simulator"
+    print("Running on the IBM QASM simulator")
 elif sys.argv[1] == "guadalupe":
     backend = "ibmq_guadalupe"
     print("Running on IBM Guadalupe")
+elif sys.argv[1] == "ionq":
+    IONQ = True
+    print("Running on the IonQ simulator")
 else:
     print(f"Invalid run location argument: {sys.argv[1]}")
     print("Valid options are: local, simulator, guadalupe")
@@ -92,6 +99,10 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
 
 if LOCAL:
     execute_timed(LocalEstimator())
+elif IONQ:
+    backend = IonQProvider().get_backend("ionq_simulator")
+    assert isinstance(backend, IonQBackend)
+    execute_timed(IonQEstimator(backend))
 else:
     service = QiskitRuntimeService(
         channel="ibm_quantum",

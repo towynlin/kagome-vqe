@@ -3,6 +3,7 @@ from .ansatze import (
     GuadalupeExpressibleJosephsonSampler,
 )
 from .heisenberg_model import HeisenbergModel
+from .ionq_estimator import IonQEstimator
 from .kagome_hamiltonian import KagomeHamiltonian
 from .rotosolve import Rotosolve
 from .rotoselect_translator import RotoselectTranslator
@@ -11,6 +12,7 @@ from .rotoselect_vqe import RotoselectVQE
 
 __all__ = [
     "HeisenbergModel",
+    "IonQEstimator",
     "GuadalupeEfficientSU2",
     "GuadalupeExpressibleJosephsonSampler",
     "KagomeHamiltonian",
