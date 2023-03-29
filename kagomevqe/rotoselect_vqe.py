@@ -47,7 +47,7 @@ class RotoselectVQE(VQE):
         𝜃 = np.tile(x0, batch_size)
         iteration = 0
         minimized_energy = np.inf
-        while iteration < 8:
+        while iteration < 10:
             for d in range(D):
                 circuits = self._get_circuit_structure_variants(d)
                 assert len(circuits) == batch_size
