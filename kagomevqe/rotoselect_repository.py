@@ -48,17 +48,18 @@ class RotoselectRepository:
             np.argsort(self.values[lowest_5p_indices])
         ]
 
-        candidate_values = self.values[lowest_5p_indices]
+        # Remove data points preceded by large drop and succeeded by large increase
+        to_delete = []
+        for i, orig_idx in enumerate(lowest_5p_indices):
+            orig_d1 = self.values[orig_idx] - self.values[orig_idx - 1]
+            orig_d2 = self.values[orig_idx + 1] - self.values[orig_idx]
+            if orig_d1 < -1 and orig_d2 > 1:
+                to_delete.append(i)
 
-        # Find the lowest value near enough to the median
-        m = np.median(candidate_values)
-        med_var = 0.5 * np.mean(candidate_values - m)
-        outliers = candidate_values - m < med_var
-        i = 0
-        while outliers[i]:
-            i += 1
+        lowest_5p_indices = np.delete(lowest_5p_indices, to_delete)
 
-        best_index = lowest_5p_indices[i]
+        best_index = lowest_5p_indices[0]
+
         optimum = (
             self.values[best_index],
             self.parameters[best_index],
