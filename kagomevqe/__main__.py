@@ -50,6 +50,15 @@ else:
     print("Valid options are: local, simulator, guadalupe")
     sys.exit(2)
 
+if len(sys.argv) >= 3:
+    try:
+        r = int(sys.argv[2])
+        if r >= 0 and r <= 3:
+            options.resilience_level = r
+            print(f"Resilience level set to {r}")
+    except ValueError:
+        print("Second command line argument is not parseable as an int. Ignoring.")
+
 repo = RotoselectRepository()
 ansatz = GuadalupeExpressibleJosephsonSampler()
 hamiltonian = KagomeHamiltonian.pauli_sum_op()
@@ -95,6 +104,9 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
 
     rel_error = relative_error(measured)
     print(f"Relative error: {rel_error}")
+
+    t = strftime("%m/%d %H:%M:%S%z")
+    print(f"{t} Finished")
 
 
 if LOCAL:
