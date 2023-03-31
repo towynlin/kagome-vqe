@@ -51,10 +51,12 @@ class RotoselectRepository:
         # Remove data points preceded by large drop and succeeded by large increase
         to_delete = []
         for i, orig_idx in enumerate(lowest_5p_indices):
-            orig_d1 = self.values[orig_idx] - self.values[orig_idx - 1]
-            orig_d2 = self.values[orig_idx + 1] - self.values[orig_idx]
-            if orig_d1 < -1 and orig_d2 > 1:
-                to_delete.append(i)
+            # sanity check since we need the following data point
+            if orig_idx < self.values.size - 1:
+                orig_d1 = self.values[orig_idx] - self.values[orig_idx - 1]
+                orig_d2 = self.values[orig_idx + 1] - self.values[orig_idx]
+                if orig_d1 < -1 and orig_d2 > 1:
+                    to_delete.append(i)
 
         lowest_5p_indices = np.delete(lowest_5p_indices, to_delete)
 
