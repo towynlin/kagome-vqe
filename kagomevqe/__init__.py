@@ -1,6 +1,7 @@
 from .ansatze import (
     GuadalupeEfficientSU2,
     GuadalupeExpressibleJosephsonSampler,
+    GuadalupeKagomeRotationalSymmetry,
 )
 from .heisenberg_model import HeisenbergModel
 from .ionq_estimator import IonQEstimator
