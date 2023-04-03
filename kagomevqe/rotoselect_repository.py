@@ -41,35 +41,47 @@ class RotoselectRepository:
             print(f"Gates: {gate_names}\n")
 
     def get_best_result(self) -> Tuple[float, np.ndarray, np.ndarray]:
-        five_percent = int(0.05 * self.values.size)
-        if five_percent < 1:
+        best_index = __class__.best_index(self.values)
+        if best_index == -1:
             return (0.0, np.array([]), np.array([]))
+        else:
+            return (
+                self.values[best_index],
+                self.parameters[best_index],
+                self.gate_names[best_index],
+            )
+
+    @staticmethod
+    def best_index(values: np.ndarray) -> int:
+        lowest_5p_indices = __class__.lowest_5p_indices(values)
+        to_delete = __class__.outliers(values, lowest_5p_indices)
+        lowest_5p_indices = np.delete(lowest_5p_indices, to_delete)
+        return lowest_5p_indices[0]
+
+    @staticmethod
+    def lowest_5p_indices(values: np.ndarray) -> np.ndarray:
+        five_percent = int(0.05 * values.size)
+        if five_percent < 1:
+            return np.ndarray([])
 
         # Get the indices of the lowest five percent of values, unsorted
-        lowest_5p_indices = np.argpartition(self.values, five_percent)[:five_percent]
+        lowest_5p_indices = np.argpartition(values, five_percent)[:five_percent]
 
         # Sort the indices so the minimum value's index is first, then ascending
-        lowest_5p_indices = lowest_5p_indices[
-            np.argsort(self.values[lowest_5p_indices])
-        ]
+        lowest_5p_indices = lowest_5p_indices[np.argsort(values[lowest_5p_indices])]
 
+        return lowest_5p_indices
+
+    @staticmethod
+    def outliers(values: np.ndarray, lowest_5p_indices: np.ndarray) -> List[int]:
         # Remove data points preceded by large drop and succeeded by large increase
         to_delete = []
         for i, orig_idx in enumerate(lowest_5p_indices):
             # sanity check since we need the following data point
-            if orig_idx < self.values.size - 1:
-                orig_d1 = self.values[orig_idx] - self.values[orig_idx - 1]
-                orig_d2 = self.values[orig_idx + 1] - self.values[orig_idx]
+            if orig_idx < values.size - 1:
+                orig_d1 = values[orig_idx] - values[orig_idx - 1]
+                orig_d2 = values[orig_idx + 1] - values[orig_idx]
                 if orig_d1 < -0.05 and orig_d2 > 0.05:
                     to_delete.append(i)
 
-        lowest_5p_indices = np.delete(lowest_5p_indices, to_delete)
-
-        best_index = lowest_5p_indices[0]
-
-        optimum = (
-            self.values[best_index],
-            self.parameters[best_index],
-            self.gate_names[best_index],
-        )
-        return optimum  # type: ignore
+        return to_delete
