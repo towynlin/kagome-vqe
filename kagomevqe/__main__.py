@@ -1,5 +1,7 @@
 from kagomevqe import (
+    GuadalupeEfficientSU2,
     GuadalupeExpressibleJosephsonSampler,
+    GuadalupeKagomeRotationalSymmetry,
     IonQEstimator,
     KagomeHamiltonian,
     RotoselectRepository,
@@ -50,17 +52,20 @@ else:
     print("Valid options are: local, simulator, guadalupe")
     sys.exit(2)
 
-if len(sys.argv) >= 3:
-    try:
-        r = int(sys.argv[2])
-        if r >= 0 and r <= 3:
-            options.resilience_level = r
-            print(f"Resilience level set to {r}")
-    except ValueError:
-        print("Second command line argument is not parseable as an int. Ignoring.")
 
-repo = RotoselectRepository()
 ansatz = GuadalupeExpressibleJosephsonSampler()
+
+if len(sys.argv) >= 3:
+    if sys.argv[2] == "rotsym":
+        ansatz = GuadalupeKagomeRotationalSymmetry()
+        print("Using rotational symmetry ansatz")
+    elif sys.argv[2] == "effsu2":
+        ansatz = GuadalupeEfficientSU2()
+        print("Using efficient SU2 ansatz")
+    else:
+        print("Using highly expressible Josephson sampler ansatz")
+
+repo = RotoselectRepository(num_params=ansatz.num_parameters)
 hamiltonian = KagomeHamiltonian.pauli_sum_op()
 x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
 

@@ -7,13 +7,16 @@ from typing import Any, List, Tuple
 
 @dataclass
 class RotoselectRepository:
+    parameters: np.ndarray = field()
+    gate_names: np.ndarray = field()
+    values: np.ndarray = field()
     first_time: float = 0.0
     last_time: float = 0.0
-    values: np.ndarray = field(default=np.empty((0,), dtype=float))
-    parameters: np.ndarray = field(default=np.empty((0, 96), dtype=float))
-    gate_names: np.ndarray = field(default=np.empty((0, 96), dtype=str))
 
-    def __post_init__(self):
+    def __init__(self, num_params: int):
+        self.values = np.empty((0,), dtype=float)
+        self.parameters = np.empty((0, num_params), dtype=float)
+        self.gate_names = np.empty((0, num_params), dtype=str)
         self.first_time = time()
 
     def update(
@@ -39,6 +42,8 @@ class RotoselectRepository:
 
     def get_best_result(self) -> Tuple[float, np.ndarray, np.ndarray]:
         five_percent = int(0.05 * self.values.size)
+        if five_percent < 1:
+            return (0.0, np.array([]), np.array([]))
 
         # Get the indices of the lowest five percent of values, unsorted
         lowest_5p_indices = np.argpartition(self.values, five_percent)[:five_percent]
@@ -55,7 +60,7 @@ class RotoselectRepository:
             if orig_idx < self.values.size - 1:
                 orig_d1 = self.values[orig_idx] - self.values[orig_idx - 1]
                 orig_d2 = self.values[orig_idx + 1] - self.values[orig_idx]
-                if orig_d1 < -1 and orig_d2 > 1:
+                if orig_d1 < -0.05 and orig_d2 > 0.05:
                     to_delete.append(i)
 
         lowest_5p_indices = np.delete(lowest_5p_indices, to_delete)
