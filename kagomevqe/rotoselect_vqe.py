@@ -6,6 +6,7 @@ from qiskit.algorithms.optimizers import OptimizerResult
 from qiskit.circuit.library import RZGate, RYGate, RXGate
 from qiskit.opflow import PauliSumOp
 from qiskit.primitives import BaseEstimator, EstimatorResult
+from random import sample
 from time import time
 from typing import Callable, List, Sequence, Tuple
 
@@ -48,7 +49,7 @@ class RotoselectVQE(VQE):
         iteration = 0
         minimized_energy = np.inf
         while iteration < 10:
-            for d in range(D):
+            for d in sample(range(D), k=D):
                 circuits = self._get_circuit_structure_variants(d)
                 assert len(circuits) == batch_size
 

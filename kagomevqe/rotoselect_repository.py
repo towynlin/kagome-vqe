@@ -32,9 +32,10 @@ class RotoselectRepository:
         self.values = np.append(self.values, energy)
         self.parameters = np.append(self.parameters, [parameters], axis=0)
         self.gate_names = np.append(self.gate_names, [gate_names], axis=0)
+        gidx = (self.values.size - 1) % self.parameters[0].size
         t = strftime("%m/%d %H:%M:%S%z")
         print(
-            f"{t} Iteration {iteration} gate {d}: {gate_change}\tenergy: {energy: 012.08f}"
+            f"{t} Iteration {iteration}[{gidx}] gate {d}: {gate_change}\tenergy: {energy: 012.08f}"
         )
         if self.values.size % 24 == 0:
             print(f"\nParameters: {parameters}\n")
@@ -56,13 +57,16 @@ class RotoselectRepository:
         lowest_5p_indices = __class__.lowest_5p_indices(values)
         to_delete = __class__.outliers(values, lowest_5p_indices)
         lowest_5p_indices = np.delete(lowest_5p_indices, to_delete)
-        return lowest_5p_indices[0]
+        if lowest_5p_indices.size == 0:
+            return -1
+        else:
+            return lowest_5p_indices[0]
 
     @staticmethod
     def lowest_5p_indices(values: np.ndarray) -> np.ndarray:
         five_percent = int(0.05 * values.size)
         if five_percent < 1:
-            return np.ndarray([])
+            return np.array([])
 
         # Get the indices of the lowest five percent of values, unsorted
         lowest_5p_indices = np.argpartition(values, five_percent)[:five_percent]
@@ -74,6 +78,9 @@ class RotoselectRepository:
 
     @staticmethod
     def outliers(values: np.ndarray, lowest_5p_indices: np.ndarray) -> List[int]:
+        if lowest_5p_indices.size == 0:
+            return []
+
         # Remove data points preceded by large drop and succeeded by large increase
         to_delete = []
         for i, orig_idx in enumerate(lowest_5p_indices):
