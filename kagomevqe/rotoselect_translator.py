@@ -1,5 +1,6 @@
 from qiskit.circuit import Gate
 from qiskit.circuit.library import RZGate, RYGate, RXGate
+from qiskit.circuit.parameterexpression import ParameterExpression
 from qiskit.dagcircuit import DAGCircuit, DAGOpNode
 from qiskit.transpiler import TransformationPass
 from typing import List, Tuple, Type
@@ -58,23 +59,28 @@ class RotoselectTranslator(TransformationPass):
                 if num_params > 1:
                     raise NotImplementedError
 
-                if parameter_count == self.parameter_index:
-                    if isinstance(gate, self.replacement_gate):
-                        self._last_did_change = False
-                        self._last_old_gate = gate.name
-                        self._last_new_gate = gate.name
+                assert isinstance(gate.params[0], ParameterExpression)
+                has_free_param = len(gate.params[0].parameters) > 0
+                if has_free_param:
+                    if parameter_count == self.parameter_index:
+                        if isinstance(gate, self.replacement_gate):
+                            self._last_did_change = False
+                            self._last_old_gate = gate.name
+                            self._last_new_gate = gate.name
+                        else:
+                            # This is the node to replace.
+                            param = gate.params[0]
+                            replacement = self.replacement_gate(param)
+                            dag.substitute_node(node, replacement)
+                            self._last_did_change = True
+                            self._last_old_gate = gate.name
+                            self._last_new_gate = replacement.name
+                        self._last_parameterized_gate_name_list.append(
+                            self._last_new_gate
+                        )
                     else:
-                        # This is the node to replace.
-                        param = gate.params[0]
-                        replacement = self.replacement_gate(param)
-                        dag.substitute_node(node, replacement)
-                        self._last_did_change = True
-                        self._last_old_gate = gate.name
-                        self._last_new_gate = replacement.name
-                    self._last_parameterized_gate_name_list.append(self._last_new_gate)
-                else:
-                    self._last_parameterized_gate_name_list.append(gate.name)
+                        self._last_parameterized_gate_name_list.append(gate.name)
 
-                parameter_count += num_params
+                    parameter_count += num_params
 
         return dag

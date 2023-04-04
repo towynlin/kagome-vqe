@@ -32,10 +32,9 @@ class RotoselectRepository:
         self.values = np.append(self.values, energy)
         self.parameters = np.append(self.parameters, [parameters], axis=0)
         self.gate_names = np.append(self.gate_names, [gate_names], axis=0)
-        gidx = (self.values.size - 1) % self.parameters[0].size
         t = strftime("%m/%d %H:%M:%S%z")
         print(
-            f"{t} Iteration {iteration}[{gidx}] gate {d}: {gate_change}\tenergy: {energy: 012.08f}"
+            f"{t} Iteration {iteration} gate {d}: {gate_change}\tenergy: {energy: 012.08f}"
         )
         if self.values.size % 24 == 0:
             print(f"\nParameters: {parameters}\n")

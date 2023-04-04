@@ -6,6 +6,7 @@ from qiskit.providers.fake_provider import FakeGuadalupeV2
 
 class GuadalupeEfficientSU2(QuantumCircuit):
     def __init__(self):
+        super().__init__(16)
         ansatz = EfficientSU2(12, reps=4)
         guadalupe = FakeGuadalupeV2()
         q_layout = [1, 2, 3, 5, 8, 11, 14, 13, 12, 10, 7, 4]
@@ -15,7 +16,8 @@ class GuadalupeEfficientSU2(QuantumCircuit):
             initial_layout=q_layout,
             coupling_map=guadalupe.coupling_map,
         )
-        self = ansatz
+        assert isinstance(ansatz, QuantumCircuit)
+        self += ansatz
 
 
 class GuadalupeExpressibleJosephsonSampler(QuantumCircuit):
