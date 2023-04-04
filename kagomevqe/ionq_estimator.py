@@ -4,7 +4,6 @@ from qiskit.primitives import BackendEstimator, EstimatorResult
 from qiskit.result import Result
 from qiskit.result.models import ExperimentResult, ExperimentResultData
 from qiskit.tools.monitor import job_monitor
-from qiskit_ionq import IonQProvider
 from qiskit_ionq.ionq_backend import IonQBackend
 from typing import Sequence
 

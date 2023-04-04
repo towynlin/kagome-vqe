@@ -4,6 +4,7 @@ from kagomevqe import (
     GuadalupeKagomeRotationalSymmetry,
     IonQEstimator,
     KagomeHamiltonian,
+    Kagome16AsymmetricHamiltonian,
     RotoselectRepository,
     RotoselectVQE,
 )
@@ -53,7 +54,17 @@ else:
     sys.exit(2)
 
 
-ansatz = GuadalupeExpressibleJosephsonSampler()
+reps = 2
+variant = "original"
+ham_class = KagomeHamiltonian
+if len(sys.argv) >= 4:
+    if sys.argv[3] == "fill16":
+        reps = 3
+        variant = "fill16"
+        ham_class = Kagome16AsymmetricHamiltonian
+        print("Using asymmetric extended lattice Hamiltonian")
+
+ansatz = GuadalupeExpressibleJosephsonSampler(reps=reps, variant=variant)
 
 if len(sys.argv) >= 3:
     if sys.argv[2] == "rotsym":
@@ -66,12 +77,13 @@ if len(sys.argv) >= 3:
         print("Using highly expressible Josephson sampler ansatz")
 
 repo = RotoselectRepository(num_params=ansatz.num_parameters)
-hamiltonian = KagomeHamiltonian.pauli_sum_op()
+hamiltonian = ham_class.pauli_sum_op()
+gs_energy = ham_class.ground_state_energy()
 x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
 
 
 def relative_error(val: float) -> float:
-    return abs((-18.0 - val) / -18.0)
+    return abs((gs_energy - val) / gs_energy)
 
 
 def execute_timed(estimator: BaseEstimator, session: Session | None = None):
@@ -83,6 +95,7 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
         ansatz=ansatz,
         initial_point=x0,  # type: ignore
         repository=repo,
+        maxiter=16,
     )
     try:
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
@@ -140,13 +153,13 @@ plt.clf()
 plt.plot(repo.values, color="purple", lw=2, label="RotoselectVQE")
 plt.ylabel("Energy")
 plt.xlabel("Iterations (gates optimized)")
-plt.axhline(y=-18.0, color="tab:red", ls="--", lw=2, label="Target: -18.0")
+plt.axhline(y=gs_energy, color="tab:red", ls="--", lw=2, label=f"Target: {gs_energy}")
 plt.legend()
 plt.grid()
 plt.savefig(f"data/{t}-fig-values")
 
 plt.clf()
-plt.hist(repo.values, bins=30, density=True)
+plt.hist(repo.values, bins=40, density=True)
 plt.ylabel("Density")
 plt.xlabel("Energy")
 plt.grid()

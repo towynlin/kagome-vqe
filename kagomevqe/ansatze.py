@@ -38,18 +38,23 @@ class GuadalupeExpressibleJosephsonSampler(QuantumCircuit):
     Only RY requires transpilation to SX-RZ-SX-RZ.
     """
 
-    def __init__(self):
+    def __init__(self, reps: int = 2, variant: str = "original"):
         super().__init__(16)
         entangler_map = [
             [(1, 2), (3, 5), (8, 11), (14, 13), (12, 10), (7, 4)],
             [(2, 3), (5, 8), (11, 14), (13, 12), (10, 7), (4, 1)],
         ]
+        if variant == "fill16":
+            entangler_map = [
+                [(1, 4), (3, 5), (8, 9), (14, 13), (12, 10), (7, 6), (2, 0)],
+                [(0, 1), (2, 3), (5, 8), (11, 14), (15, 12), (10, 7), (6, 4)],
+            ]
         self += TwoLocal(
             16,
             ["ry", "rz"],
             "cx",
             entangler_map,
-            reps=4,
+            reps=2 * reps,
             skip_unentangled_qubits=True,
             skip_final_rotation_layer=True,
         ).decompose()

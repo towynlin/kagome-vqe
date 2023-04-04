@@ -20,6 +20,7 @@ class RotoselectVQE(VQE):
         ansatz: QuantumCircuit,
         initial_point: Sequence[float],
         repository: RotoselectRepository,
+        maxiter: int = 10,
     ) -> None:
         """Mostly the same as VQE.
         There's no optimizer to pass.
@@ -35,6 +36,7 @@ class RotoselectVQE(VQE):
         self.initial_point = initial_point
         self._repo = repository
         self._trans = RotoselectTranslator()
+        self._maxiter = maxiter
 
     def compute_minimum_eigenvalue(
         self,
@@ -47,7 +49,7 @@ class RotoselectVQE(VQE):
         𝜃 = np.tile(x0, batch_size)
         iteration = 0
         minimized_energy = np.inf
-        while iteration < 10:
+        while iteration < self._maxiter:
             for d in range(D):
                 circuits = self._get_circuit_structure_variants(d)
                 assert len(circuits) == batch_size
@@ -65,7 +67,6 @@ class RotoselectVQE(VQE):
                 energies = self._run_and_maybe_retry_estimator(
                     circuits, [operator] * batch_size, parameters
                 )
-                # print(f"energies = {energies}")
 
                 minima, B, best_gate = self._analyze_energies(energies)
 
