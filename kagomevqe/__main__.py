@@ -1,6 +1,7 @@
 from kagomevqe import (
     GuadalupeEfficientSU2,
     GuadalupeExpressibleJosephsonSampler,
+    GuadalupeKagomeExtended16,
     GuadalupeKagomeRotationalSymmetry,
     IonQEstimator,
     KagomeHamiltonian,
@@ -68,8 +69,12 @@ ansatz = GuadalupeExpressibleJosephsonSampler(reps=reps, variant=variant)
 
 if len(sys.argv) >= 3:
     if sys.argv[2] == "rotsym":
-        ansatz = GuadalupeKagomeRotationalSymmetry()
-        print("Using rotational symmetry ansatz")
+        if variant == "fill16":
+            ansatz = GuadalupeKagomeExtended16()
+            print("Using a simple Bell state ansatz on the extended lattice")
+        else:
+            ansatz = GuadalupeKagomeRotationalSymmetry()
+            print("Using rotational symmetry ansatz")
     elif sys.argv[2] == "effsu2":
         ansatz = GuadalupeEfficientSU2()
         print("Using efficient SU2 ansatz")

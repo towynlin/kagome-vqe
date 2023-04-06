@@ -1,6 +1,7 @@
 from .ansatze import (
     GuadalupeEfficientSU2,
     GuadalupeExpressibleJosephsonSampler,
+    GuadalupeKagomeExtended16,
     GuadalupeKagomeRotationalSymmetry,
 )
 from .heisenberg_model import HeisenbergModel
@@ -16,6 +17,7 @@ __all__ = [
     "IonQEstimator",
     "GuadalupeEfficientSU2",
     "GuadalupeExpressibleJosephsonSampler",
+    "GuadalupeKagomeExtended16",
     "GuadalupeKagomeRotationalSymmetry",
     "KagomeHamiltonian",
     "Kagome16AsymmetricHamiltonian",
