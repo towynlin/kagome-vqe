@@ -6,6 +6,7 @@ from kagomevqe import (
     IonQEstimator,
     KagomeHamiltonian,
     Kagome16AsymmetricHamiltonian,
+    RetryEstimator,
     RotoselectRepository,
     RotoselectVQE,
     SimpleRepository,
@@ -125,12 +126,14 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
     else:
         assert isinstance(repo, RotoselectRepository)
         x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
+        maxiter = int(np.ceil(ansatz.num_parameters / 12)) + 2
+        print(f"Running RotoselectVQE for {maxiter} iterations")
         vqe = RotoselectVQE(
             estimator=estimator,
             ansatz=ansatz,
             initial_point=x0,  # type: ignore
             repository=repo,
-            maxiter=16,
+            maxiter=maxiter,
         )
     try:
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
@@ -167,6 +170,7 @@ if LOCAL:
 elif IONQ:
     backend = IonQProvider().get_backend("ionq_simulator")
     assert isinstance(backend, IonQBackend)
+    backend.set_options(noise_model="aria-1")
     execute_timed(IonQEstimator(backend))
 else:
     service = QiskitRuntimeService(
@@ -174,7 +178,11 @@ else:
         instance="ibm-q-community/ibmquantumawards/open-science-22",
     )
     with Session(service=service, backend=backend) as session:
-        estimator = Estimator(session=session, options=options)
+        if args.simple:
+            estimator = RetryEstimator(session=session, options=options)
+        else:
+            # Retry is handled in RotoselectVQE
+            estimator = Estimator(session=session, options=options)
         execute_timed(estimator, session)
 
 t = strftime("%m-%d-%H-%M-%S%z")
@@ -185,9 +193,15 @@ np.save(f"data/{t}-gates", repo.gate_names)
 plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
 
 plt.clf()
-plt.plot(repo.values, color="purple", lw=2, label="RotoselectVQE")
+if args.simple:
+    label = "VQE"
+    xlabel = "Iterations"
+else:
+    label = "RotoselectVQE"
+    xlabel = "Iterations (gates optimized)"
+plt.plot(repo.values, color="purple", lw=2, label=label)
 plt.ylabel("Energy")
-plt.xlabel("Iterations (gates optimized)")
+plt.xlabel(xlabel)
 plt.axhline(y=gs_energy, color="tab:red", ls="--", lw=2, label=f"Target: {gs_energy}")
 plt.legend()
 plt.grid()

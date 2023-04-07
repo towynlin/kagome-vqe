@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import numpy as np
+from time import strftime
 from typing import Any, Tuple
 
 
@@ -19,8 +20,10 @@ class SimpleRepository:
     ):
         self.values = np.append(self.values, energy)
         self.parameters = np.append(self.parameters, [parameters], axis=0)
-        if count % 12 == 0:
-            print(f"callback {count}, energy: {energy}")
+        t = strftime("%m/%d %H:%M:%S%z")
+        print(f"{t} Iteration {count}:\tenergy: {energy: 012.08f}")
+        if self.values.size % 24 == 0:
+            print(f"\nParameters: {parameters}\n")
 
     def get_best_result(self) -> Tuple[float, np.ndarray, np.ndarray]:
         if self.values.size > 0:

@@ -67,8 +67,8 @@ def _run_circuits(
 
 
 class IonQEstimator(BackendEstimator):
-    def __init__(self, backend: IonQBackend):
-        super().__init__(backend)
+    def __init__(self, backend: IonQBackend, options: dict | None = None):
+        super().__init__(backend, options=options)
         self._backend = backend
 
     def _call(

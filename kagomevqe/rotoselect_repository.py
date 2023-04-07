@@ -63,7 +63,7 @@ class RotoselectRepository:
 
     @staticmethod
     def lowest_5p_indices(values: np.ndarray) -> np.ndarray:
-        five_percent = int(0.05 * values.size)
+        five_percent = int(np.ceil(0.05 * values.size))
         if five_percent < 1:
             return np.array([])
 
