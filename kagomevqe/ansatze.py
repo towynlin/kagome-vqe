@@ -17,7 +17,7 @@ class GuadalupeEfficientSU2(QuantumCircuit):
             coupling_map=guadalupe.coupling_map,
         )
         assert isinstance(ansatz, QuantumCircuit)
-        self += ansatz
+        self &= ansatz
 
 
 class GuadalupeExpressibleJosephsonSampler(QuantumCircuit):
@@ -49,7 +49,7 @@ class GuadalupeExpressibleJosephsonSampler(QuantumCircuit):
                 [(1, 4), (3, 5), (8, 9), (14, 13), (12, 10), (7, 6), (2, 0)],
                 [(0, 1), (2, 3), (5, 8), (11, 14), (15, 12), (10, 7), (6, 4)],
             ]
-        self += TwoLocal(
+        self &= TwoLocal(
             16,
             ["ry", "rz"],
             "cx",
