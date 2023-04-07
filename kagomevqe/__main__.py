@@ -1,5 +1,5 @@
+from argparse import ArgumentParser
 from kagomevqe import (
-    GuadalupeEfficientSU2,
     GuadalupeExpressibleJosephsonSampler,
     GuadalupeKagomeExtended16,
     GuadalupeKagomeRotationalSymmetry,
@@ -8,9 +8,12 @@ from kagomevqe import (
     Kagome16AsymmetricHamiltonian,
     RotoselectRepository,
     RotoselectVQE,
+    SimpleRepository,
 )
 import matplotlib.pyplot as plt
 import numpy as np
+from qiskit.algorithms.minimum_eigensolvers import VQE
+from qiskit.algorithms.optimizers import L_BFGS_B
 from qiskit.primitives import (
     BaseEstimator,
     Estimator as LocalEstimator,
@@ -19,15 +22,39 @@ from qiskit_ibm_runtime import QiskitRuntimeService, Session, Estimator, Options
 from qiskit_ibm_runtime.options import EnvironmentOptions
 from qiskit_ionq import IonQProvider
 from qiskit_ionq.ionq_backend import IonQBackend
-import sys
 from time import time, strftime
+from typing import Any
 
 
-if len(sys.argv) < 2:
-    print("You must provide one command line argument to")
-    print("specify where to run the quantum circuits.")
-    print("Valid options are: local, simulator, guadalupe, ionq")
-    sys.exit(2)
+parser = ArgumentParser("python -m kagomevqe")
+parser.add_argument(
+    "-b",
+    "--backend",
+    default="local",
+    choices=["local", "simulator", "guadalupe", "ionq"],
+    help="Where to run. Default: local.",
+)
+parser.add_argument(
+    "-o",
+    "--observable",
+    default="kagome",
+    choices=["kagome", "asymmetric"],
+    help="The Hamiltonian observable. Default: kagome.",
+)
+parser.add_argument(
+    "-a",
+    "--ansatz",
+    default="josephson",
+    choices=["josephson", "rotsym"],
+    help="The parameterized circuit. Default: josephson.",
+)
+parser.add_argument(
+    "--simple",
+    action="store_true",
+    help="Perform simple estimation instead of Rotoselect",
+)
+args = parser.parse_args()
+
 
 options = Options()
 options.environment = EnvironmentOptions(log_level="DEBUG")
@@ -37,54 +64,50 @@ options.optimization_level = 3
 LOCAL = False
 IONQ = False
 backend = ""
-if sys.argv[1] == "local":
+if args.backend == "local":
     LOCAL = True
     print("Running locally")
-elif sys.argv[1] == "simulator":
+elif args.backend == "simulator":
     backend = "ibmq_qasm_simulator"
     print("Running on the IBM QASM simulator")
-elif sys.argv[1] == "guadalupe":
+elif args.backend == "guadalupe":
     backend = "ibmq_guadalupe"
     print("Running on IBM Guadalupe")
-elif sys.argv[1] == "ionq":
+elif args.backend == "ionq":
     IONQ = True
     print("Running on the IonQ simulator")
-else:
-    print(f"Invalid run location argument: {sys.argv[1]}")
-    print("Valid options are: local, simulator, guadalupe")
-    sys.exit(2)
 
 
 reps = 2
 variant = "original"
 ham_class = KagomeHamiltonian
-if len(sys.argv) >= 4:
-    if sys.argv[3] == "fill16":
-        reps = 3
-        variant = "fill16"
-        ham_class = Kagome16AsymmetricHamiltonian
-        print("Using asymmetric extended lattice Hamiltonian")
+if args.observable == "asymmetric":
+    reps = 3
+    variant = "fill16"
+    ham_class = Kagome16AsymmetricHamiltonian
+    print("Using asymmetric extended Kagome lattice Hamiltonian")
 
 ansatz = GuadalupeExpressibleJosephsonSampler(reps=reps, variant=variant)
 
-if len(sys.argv) >= 3:
-    if sys.argv[2] == "rotsym":
-        if variant == "fill16":
-            ansatz = GuadalupeKagomeExtended16()
-            print("Using a simple Bell state ansatz on the extended lattice")
-        else:
-            ansatz = GuadalupeKagomeRotationalSymmetry()
-            print("Using rotational symmetry ansatz")
-    elif sys.argv[2] == "effsu2":
-        ansatz = GuadalupeEfficientSU2()
-        print("Using efficient SU2 ansatz")
+if args.ansatz == "rotsym":
+    if args.observable == "asymmetric":
+        ansatz = GuadalupeKagomeExtended16()
+        print("Using a simple Bell state ansatz on the extended lattice")
     else:
-        print("Using highly expressible Josephson sampler ansatz")
+        ansatz = GuadalupeKagomeRotationalSymmetry()
+        print("Using rotational symmetry ansatz")
+else:
+    print("Using highly expressible Josephson sampler ansatz")
 
-repo = RotoselectRepository(num_params=ansatz.num_parameters)
+
+if args.simple:
+    repo = SimpleRepository(num_params=ansatz.num_parameters)
+else:
+    repo = RotoselectRepository(num_params=ansatz.num_parameters)
+
+
 hamiltonian = ham_class.pauli_sum_op()
 gs_energy = ham_class.ground_state_energy()
-x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
 
 
 def relative_error(val: float) -> float:
@@ -95,13 +118,20 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
     t = strftime("%m/%d %H:%M:%S%z")
     print(f"{t} Starting")
     start = time()
-    vqe = RotoselectVQE(
-        estimator=estimator,
-        ansatz=ansatz,
-        initial_point=x0,  # type: ignore
-        repository=repo,
-        maxiter=16,
-    )
+    if args.simple:
+        assert isinstance(repo, SimpleRepository)
+        x0 = [-np.pi / 2] * ansatz.num_parameters
+        vqe = VQE(estimator, ansatz, L_BFGS_B(), initial_point=x0, callback=repo.update)
+    else:
+        assert isinstance(repo, RotoselectRepository)
+        x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
+        vqe = RotoselectVQE(
+            estimator=estimator,
+            ansatz=ansatz,
+            initial_point=x0,  # type: ignore
+            repository=repo,
+            maxiter=16,
+        )
     try:
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
         if result.eigenvalue is not None:

@@ -11,6 +11,7 @@ from .rotosolve import Rotosolve
 from .rotoselect_translator import RotoselectTranslator
 from .rotoselect_repository import RotoselectRepository
 from .rotoselect_vqe import RotoselectVQE
+from .simple_repository import SimpleRepository
 
 __all__ = [
     "HeisenbergModel",
@@ -26,4 +27,5 @@ __all__ = [
     "RotoselectVQE",
     "Rotosolve",
     "RotoselectRepository",
+    "SimpleRepository",
 ]
