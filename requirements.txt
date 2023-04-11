@@ -5,4 +5,5 @@ qiskit-ionq
 matplotlib>=3.5.2
 pylatexenc
 jupyterlab
+ipywidgets
 black
