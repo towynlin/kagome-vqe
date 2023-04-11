@@ -19,8 +19,11 @@ from qiskit.primitives import (
     BaseEstimator,
     Estimator as LocalEstimator,
 )
+from qiskit.providers.fake_provider import FakeGuadalupeV2
+from qiskit_aer.noise import NoiseModel
+from qiskit_aer.primitives import Estimator as AerEstimator
 from qiskit_ibm_runtime import QiskitRuntimeService, Session, Estimator, Options
-from qiskit_ibm_runtime.options import EnvironmentOptions
+from qiskit_ibm_runtime.options import EnvironmentOptions, SimulatorOptions
 from qiskit_ionq import IonQProvider
 from qiskit_ionq.ionq_backend import IonQBackend
 from time import time, strftime
@@ -53,6 +56,11 @@ parser.add_argument(
     "--simple",
     action="store_true",
     help="Perform simple estimation instead of Rotoselect",
+)
+parser.add_argument(
+    "--noise",
+    action="store_true",
+    help="Add noise to simulations",
 )
 args = parser.parse_args()
 
@@ -166,11 +174,27 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
 
 
 if LOCAL:
-    execute_timed(LocalEstimator())
+    if args.noise:
+        fake_guadalupe = FakeGuadalupeV2()
+        noise_model = NoiseModel.from_backend(fake_guadalupe)
+        estimator = AerEstimator(
+            backend_options={
+                "method": "density_matrix",
+                "coupling_map": fake_guadalupe.coupling_map,
+                "noise_model": noise_model,
+            },
+            run_options={"shots": 1024},
+        )
+        print("Applying guadalupe noise model")
+    else:
+        estimator = LocalEstimator()
+    execute_timed(estimator)
 elif IONQ:
     backend = IonQProvider().get_backend("ionq_simulator")
     assert isinstance(backend, IonQBackend)
-    backend.set_options(noise_model="aria-1")
+    if args.noise:
+        print("Setting noise model to aria-1")
+        backend.set_options(noise_model="aria-1")
     execute_timed(IonQEstimator(backend))
 else:
     service = QiskitRuntimeService(
@@ -178,6 +202,16 @@ else:
         instance="ibm-q-community/ibmquantumawards/open-science-22",
     )
     with Session(service=service, backend=backend) as session:
+        if args.noise and args.backend == "simulator":
+            fake_guadalupe = FakeGuadalupeV2()
+            noise_model = NoiseModel.from_backend(fake_guadalupe)
+            cmlist = [[a, b] for a, b in fake_guadalupe.coupling_map]
+            options.simulator = SimulatorOptions(
+                noise_model=noise_model,
+                coupling_map=cmlist,
+                basis_gates=fake_guadalupe.operation_names,
+            )
+            print("Applying guadalupe noise model")
         if args.simple:
             estimator = RetryEstimator(session=session, options=options)
         else:
