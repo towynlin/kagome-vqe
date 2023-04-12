@@ -1,3 +1,4 @@
+import numpy as np
 from qiskit import QuantumCircuit, transpile
 from qiskit.circuit import Parameter
 from qiskit.circuit.library import EfficientSU2, TwoLocal
@@ -38,16 +39,31 @@ class GuadalupeExpressibleJosephsonSampler(QuantumCircuit):
     Only RY requires transpilation to SX-RZ-SX-RZ.
     """
 
-    def __init__(self, reps: int = 2, variant: str = "original"):
+    def __init__(
+        self, reps: int = 2, variant: str = "original", prepend_rotsym: bool = False
+    ):
         super().__init__(16)
-        entangler_map = [
-            [(1, 2), (3, 5), (8, 11), (14, 13), (12, 10), (7, 4)],
-            [(2, 3), (5, 8), (11, 14), (13, 12), (10, 7), (4, 1)],
-        ]
+        if prepend_rotsym:
+            if variant == "fill16":
+                controls = [0, 3, 4, 6, 9, 12, 14, 15]
+                targets = [1, 2, 7, 10, 5, 8, 11, 13]
+            else:
+                controls = [1, 3, 7, 8, 12, 14]
+                targets = [2, 5, 4, 11, 10, 13]
+            self.x(targets)
+            self.sx(controls)
+            self.rz(-np.pi / 2, controls)
+            for i in range(len(controls)):
+                self.cx(controls[i], targets[i])
         if variant == "fill16":
             entangler_map = [
                 [(1, 4), (3, 5), (8, 9), (14, 13), (12, 10), (7, 6), (2, 0)],
                 [(0, 1), (2, 3), (5, 8), (11, 14), (15, 12), (10, 7), (6, 4)],
+            ]
+        else:
+            entangler_map = [
+                [(1, 2), (3, 5), (8, 11), (14, 13), (12, 10), (7, 4)],
+                [(2, 3), (5, 8), (11, 14), (13, 12), (10, 7), (4, 1)],
             ]
         self &= TwoLocal(
             16,

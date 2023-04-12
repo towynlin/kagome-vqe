@@ -49,7 +49,7 @@ parser.add_argument(
     "-a",
     "--ansatz",
     default="josephson",
-    choices=["josephson", "rotsym"],
+    choices=["josephson", "rotsym", "combo"],
     help="The parameterized circuit. Default: josephson.",
 )
 parser.add_argument(
@@ -96,7 +96,10 @@ if args.observable == "asymmetric":
     ham_class = Kagome16AsymmetricHamiltonian
     print("Using asymmetric extended Kagome lattice Hamiltonian")
 
-ansatz = GuadalupeExpressibleJosephsonSampler(reps=reps, variant=variant)
+prepend_rotsym = args.ansatz == "combo"
+ansatz = GuadalupeExpressibleJosephsonSampler(
+    reps=reps, variant=variant, prepend_rotsym=prepend_rotsym
+)
 
 if args.ansatz == "rotsym":
     if args.observable == "asymmetric":
@@ -106,7 +109,10 @@ if args.ansatz == "rotsym":
         ansatz = GuadalupeKagomeRotationalSymmetry()
         print("Using rotational symmetry ansatz")
 else:
-    print("Using highly expressible Josephson sampler ansatz")
+    combo = ""
+    if prepend_rotsym:
+        combo = " after initial rotational symmetry Bell state"
+    print(f"Using highly expressible Josephson sampler ansatz{combo}")
 
 
 if args.simple:
@@ -134,7 +140,7 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
     else:
         assert isinstance(repo, RotoselectRepository)
         x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
-        maxiter = int(np.ceil(ansatz.num_parameters / 12)) + 2
+        maxiter = int(np.ceil(ansatz.num_parameters / 4)) + 2
         print(f"Running RotoselectVQE for {maxiter} iterations")
         vqe = RotoselectVQE(
             estimator=estimator,
