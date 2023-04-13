@@ -8,6 +8,12 @@ from qiskit_ionq.ionq_backend import IonQBackend
 from typing import Sequence
 
 
+# TODO: Contribute this file or something similar to
+#       https://github.com/Qiskit-Partners/qiskit-ionq
+#       and comment on https://github.com/Qiskit-Partners/qiskit-ionq/issues/70
+#       since it's related, though not the same.
+
+
 def _run_circuits(
     circuits: QuantumCircuit | list[QuantumCircuit],
     backend: IonQBackend,
@@ -18,7 +24,7 @@ def _run_circuits(
     Args:
         circuits: The circuits
         backend: The backend
-        monitor: Enable job minotor if True
+        monitor: Enable job monitor if True
         **run_options: run_options
     Returns:
         The result and the metadata of the circuits
