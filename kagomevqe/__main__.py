@@ -9,6 +9,7 @@ from kagomevqe import (
     RetryEstimator,
     RotoselectRepository,
     RotoselectVQE,
+    Rotosolve,
     SimpleRepository,
 )
 import matplotlib.pyplot as plt
@@ -39,11 +40,11 @@ parser.add_argument(
     help="Where to run. Default: local.",
 )
 parser.add_argument(
-    "-o",
-    "--observable",
-    default="kagome",
-    choices=["kagome", "asymmetric"],
-    help="The Hamiltonian observable. Default: kagome.",
+    "-l",
+    "--lattice",
+    default="kagome-unit",
+    choices=["kagome-unit", "asymmetric"],
+    help="The Hamiltonian observable. Default: kagome-unit.",
 )
 parser.add_argument(
     "-a",
@@ -53,9 +54,11 @@ parser.add_argument(
     help="The parameterized circuit. Default: josephson.",
 )
 parser.add_argument(
-    "--simple",
-    action="store_true",
-    help="Perform simple estimation instead of Rotoselect",
+    "-o",
+    "--optimizer",
+    default="rotoselect",
+    choices=["rotoselect", "rotosolve", "bfgs"],
+    help="Variational optimization strategy. Default: rotoselect",
 )
 parser.add_argument(
     "--noise",
@@ -90,7 +93,7 @@ elif args.backend == "ionq":
 reps = 2
 variant = "original"
 ham_class = KagomeHamiltonian
-if args.observable == "asymmetric":
+if args.lattice == "asymmetric":
     reps = 3
     variant = "fill16"
     ham_class = Kagome16AsymmetricHamiltonian
@@ -102,7 +105,7 @@ ansatz = GuadalupeExpressibleJosephsonSampler(
 )
 
 if args.ansatz == "rotsym":
-    if args.observable == "asymmetric":
+    if args.lattice == "asymmetric":
         ansatz = GuadalupeKagomeExtended16()
         print("Using a simple Bell state ansatz on the extended lattice")
     else:
@@ -115,10 +118,10 @@ else:
     print(f"Using highly expressible Josephson sampler ansatz{combo}")
 
 
-if args.simple:
-    repo = SimpleRepository(num_params=ansatz.num_parameters)
-else:
+if args.optimizer == "rotoselect":
     repo = RotoselectRepository(num_params=ansatz.num_parameters)
+else:
+    repo = SimpleRepository(num_params=ansatz.num_parameters)
 
 
 hamiltonian = ham_class.pauli_sum_op()
@@ -133,11 +136,7 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
     t = strftime("%m/%d %H:%M:%S%z")
     print(f"{t} Starting")
     start = time()
-    if args.simple:
-        assert isinstance(repo, SimpleRepository)
-        x0 = [-np.pi / 2] * ansatz.num_parameters
-        vqe = VQE(estimator, ansatz, L_BFGS_B(), initial_point=x0, callback=repo.update)
-    else:
+    if args.optimizer == "rotoselect":
         assert isinstance(repo, RotoselectRepository)
         x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
         maxiter = int(np.ceil(ansatz.num_parameters / 4)) + 2
@@ -149,6 +148,14 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
             repository=repo,
             maxiter=maxiter,
         )
+    else:
+        assert isinstance(repo, SimpleRepository)
+        x0 = [-np.pi / 2] * ansatz.num_parameters
+        if args.optimizer == "rotosolve":
+            optimizer = Rotosolve()
+        else:
+            optimizer = L_BFGS_B()
+        vqe = VQE(estimator, ansatz, optimizer, initial_point=x0, callback=repo.update)
     try:
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
         if result.eigenvalue is not None:
@@ -218,11 +225,11 @@ else:
                 basis_gates=fake_guadalupe.operation_names,
             )
             print("Applying guadalupe noise model")
-        if args.simple:
-            estimator = RetryEstimator(session=session, options=options)
-        else:
+        if args.optimizer == "rotoselect":
             # Retry is handled in RotoselectVQE
             estimator = Estimator(session=session, options=options)
+        else:
+            estimator = RetryEstimator(session=session, options=options)
         execute_timed(estimator, session)
 
 t = strftime("%m-%d-%H-%M-%S%z")
@@ -233,12 +240,15 @@ np.save(f"data/{t}-gates", repo.gate_names)
 plt.rcParams.update({"font.size": 16})  # enlarge matplotlib fonts
 
 plt.clf()
-if args.simple:
+if args.optimizer == "bfgs":
     label = "VQE"
     xlabel = "Iterations"
-else:
+elif args.optimizer == "rotoselect":
     label = "RotoselectVQE"
     xlabel = "Iterations (gates optimized)"
+else:
+    label = "Rotosolve"
+    xlabel = "Iterations (circuit runs, 4 per gate)"
 plt.plot(repo.values, color="purple", lw=2, label=label)
 plt.ylabel("Energy")
 plt.xlabel(xlabel)

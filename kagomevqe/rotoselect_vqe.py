@@ -1,4 +1,4 @@
-from kagomevqe import RotoselectRepository, RotoselectTranslator
+from kagomevqe import RotoselectRepository, RotoselectTranslator, Rotosolve
 import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.algorithms.minimum_eigensolvers import VQE, VQEResult
@@ -42,14 +42,16 @@ class RotoselectVQE(VQE):
         self,
         operator: PauliSumOp,
     ) -> VQEResult:
+        self._operator = operator
         start_time = time()
         batch_size = 8
         x0 = np.array(self.initial_point)
         D = len(x0)
+        self._D = D  # for Rotosolve objective, later
         𝜃 = np.tile(x0, batch_size)
         iteration = 0
         minimized_energy = np.inf
-        while iteration < self._maxiter:
+        while iteration < 5:
             for d in range(D):
                 circuits = self._get_circuit_structure_variants(d)
                 assert len(circuits) == batch_size
@@ -95,13 +97,24 @@ class RotoselectVQE(VQE):
             best_so_far = self._repo.get_best_result()
             print(f"\nBest so far:\n{best_so_far}\n")
 
-        best_result = self._repo.get_best_result()
+        print("Switching to Rotosolve")
+        self._rotosolve_iteration = iteration
+        self._rotosolve_gate_index = 0
+        self._rotosolve_gates = self._trans.parameterized_gate_name_list
+        optimizer = Rotosolve(maxiter=self._maxiter - iteration)
+        optimizer_result = optimizer.minimize(
+            self._rotosolve_objective,  # type: ignore
+            𝜃[:D],
+        )
+
+        # best_result = self._repo.get_best_result()
+
+        # optimizer_result = OptimizerResult()
+        # optimizer_result.fun = best_result[0]
+        # optimizer_result.x = best_result[1]
+        # print(f"Final best gates: {best_result[2]}")
 
         optimizer_time = time() - start_time
-        optimizer_result = OptimizerResult()
-        optimizer_result.fun = best_result[0]
-        optimizer_result.x = best_result[1]
-        print(f"Final best gates: {best_result[2]}")
 
         return self._build_vqe_result(self.ansatz, optimizer_result, [], optimizer_time)
 
@@ -205,3 +218,23 @@ class RotoselectVQE(VQE):
             circ_rx,
             self.ansatz,
         ]
+
+    def _rotosolve_objective(self, x: np.ndarray) -> np.ndarray:
+        parameters = np.reshape(x, (-1, self._D)).tolist()
+        batch_size = len(parameters)
+        est_result = self._run_and_maybe_retry_estimator(
+            [self.ansatz] * batch_size, [self._operator] * batch_size, parameters
+        )
+        self._repo.update(
+            self._rotosolve_iteration,
+            self._rotosolve_gate_index,
+            (False, "", ""),
+            self._rotosolve_gates,
+            parameters[batch_size - 1],
+            est_result[batch_size - 1],
+        )
+        self._rotosolve_gate_index += 1
+        if self._rotosolve_gate_index >= self._D:
+            self._rotosolve_iteration += 1
+            self._rotosolve_gate_index = 0
+        return est_result
