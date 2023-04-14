@@ -58,12 +58,19 @@ parser.add_argument(
     "--optimizer",
     default="rotoselect",
     choices=["rotoselect", "rotosolve", "bfgs"],
-    help="Variational optimization strategy. Default: rotoselect",
+    help="Variational optimization strategy. Default: rotoselect.",
 )
 parser.add_argument(
-    "--noise",
+    "-m",
+    "--maxiter",
+    type=int,
+    default=100,
+    help="Maximum optimizer iterations. Default: 100.",
+)
+parser.add_argument(
+    "--no-noise",
     action="store_true",
-    help="Add noise to simulations",
+    help="Don't add noise to simulations.",
 )
 args = parser.parse_args()
 
@@ -90,18 +97,16 @@ elif args.backend == "ionq":
     print("Running on the IonQ simulator")
 
 
-reps = 2
 variant = "original"
 ham_class = KagomeHamiltonian
 if args.lattice == "asymmetric":
-    reps = 3
     variant = "fill16"
     ham_class = Kagome16AsymmetricHamiltonian
     print("Using asymmetric extended Kagome lattice Hamiltonian")
 
 prepend_rotsym = args.ansatz == "combo"
 ansatz = GuadalupeExpressibleJosephsonSampler(
-    reps=reps, variant=variant, prepend_rotsym=prepend_rotsym
+    reps=3, variant=variant, prepend_rotsym=prepend_rotsym
 )
 
 if args.ansatz == "rotsym":
@@ -139,22 +144,20 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
     if args.optimizer == "rotoselect":
         assert isinstance(repo, RotoselectRepository)
         x0 = 0.1 * (np.random.rand(ansatz.num_parameters) - 0.5)
-        maxiter = int(np.ceil(ansatz.num_parameters / 4)) + 2
-        print(f"Running RotoselectVQE for {maxiter} iterations")
         vqe = RotoselectVQE(
             estimator=estimator,
             ansatz=ansatz,
             initial_point=x0,  # type: ignore
             repository=repo,
-            maxiter=maxiter,
+            maxiter=args.maxiter,
         )
     else:
         assert isinstance(repo, SimpleRepository)
         x0 = [-np.pi / 2] * ansatz.num_parameters
         if args.optimizer == "rotosolve":
-            optimizer = Rotosolve()
+            optimizer = Rotosolve(maxiter=args.maxiter)
         else:
-            optimizer = L_BFGS_B()
+            optimizer = L_BFGS_B(maxiter=args.maxiter)
         vqe = VQE(estimator, ansatz, optimizer, initial_point=x0, callback=repo.update)
     try:
         result = vqe.compute_minimum_eigenvalue(hamiltonian)
@@ -187,7 +190,9 @@ def execute_timed(estimator: BaseEstimator, session: Session | None = None):
 
 
 if LOCAL:
-    if args.noise:
+    if args.no_noise:
+        estimator = LocalEstimator()
+    else:
         fake_guadalupe = FakeGuadalupeV2()
         noise_model = NoiseModel.from_backend(fake_guadalupe)
         estimator = AerEstimator(
@@ -199,13 +204,11 @@ if LOCAL:
             run_options={"shots": 1024},
         )
         print("Applying guadalupe noise model")
-    else:
-        estimator = LocalEstimator()
     execute_timed(estimator)
 elif IONQ:
     backend = IonQProvider().get_backend("ionq_simulator")
     assert isinstance(backend, IonQBackend)
-    if args.noise:
+    if not args.no_noise:
         print("Setting noise model to aria-1")
         backend.set_options(noise_model="aria-1")
     execute_timed(IonQEstimator(backend))
@@ -215,7 +218,7 @@ else:
         instance="ibm-q-community/ibmquantumawards/open-science-22",
     )
     with Session(service=service, backend=backend) as session:
-        if args.noise and args.backend == "simulator":
+        if args.backend == "simulator" and not args.no_noise:
             fake_guadalupe = FakeGuadalupeV2()
             noise_model = NoiseModel.from_backend(fake_guadalupe)
             cmlist = [[a, b] for a, b in fake_guadalupe.coupling_map]

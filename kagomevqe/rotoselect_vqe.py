@@ -51,7 +51,7 @@ class RotoselectVQE(VQE):
         𝜃 = np.tile(x0, batch_size)
         iteration = 0
         minimized_energy = np.inf
-        while iteration < 5:
+        while iteration < self._maxiter / 2:
             for d in range(D):
                 circuits = self._get_circuit_structure_variants(d)
                 assert len(circuits) == batch_size
@@ -106,13 +106,6 @@ class RotoselectVQE(VQE):
             self._rotosolve_objective,  # type: ignore
             𝜃[:D],
         )
-
-        # best_result = self._repo.get_best_result()
-
-        # optimizer_result = OptimizerResult()
-        # optimizer_result.fun = best_result[0]
-        # optimizer_result.x = best_result[1]
-        # print(f"Final best gates: {best_result[2]}")
 
         optimizer_time = time() - start_time
 
