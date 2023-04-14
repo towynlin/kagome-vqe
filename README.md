@@ -15,8 +15,9 @@ python -m kagomevqe -h
 That will create the appropriate virtual environment and then print command line usage.
 
 ```
-usage: python -m kagomevqe [-h] [-b {local,simulator,guadalupe,ionq}] [-l {kagome-unit,asymmetric}] [-a {josephson,rotsym,combo}]
-                           [-o {rotoselect,rotosolve,bfgs}] [--noise]
+usage: python -m kagomevqe [-h] [-b {local,simulator,guadalupe,ionq}]
+                           [-l {kagome-unit,asymmetric}] [-a {josephson,rotsym,combo}]
+                           [-o {rotoselect,rotosolve,bfgs}] [-m MAXITER] [--no-noise]
 
 options:
   -h, --help            show this help message and exit
@@ -27,8 +28,10 @@ options:
   -a {josephson,rotsym,combo}, --ansatz {josephson,rotsym,combo}
                         The parameterized circuit. Default: josephson.
   -o {rotoselect,rotosolve,bfgs}, --optimizer {rotoselect,rotosolve,bfgs}
-                        Variational optimization strategy. Default: rotoselect
-  --noise               Add noise to simulations
+                        Variational optimization strategy. Default: rotoselect.
+  -m MAXITER, --maxiter MAXITER
+                        Maximum optimizer iterations. Default: 100.
+  --no-noise            Don't add noise to simulations.
 ```
 
 IBM and IonQ credentials are pulled from the environment, so be sure you've saved your IBM Quantum credentials in `$HOME/.qiskit` or exported your IonQ token to the environment before proceeding.
@@ -36,13 +39,13 @@ IBM and IonQ credentials are pulled from the environment, so be sure you've save
 To run Rotoselect on the Kagome unit cell using a highly expressible Josephson sampler ansatz in a local simulator with the Guadalupe noise model:
 
 ```sh
-python -m kagomevqe --backend local --lattice kagome-unit --ansatz josephson --optimizer rotoselect --noise
+python -m kagomevqe --backend local --lattice kagome-unit --ansatz josephson --optimizer rotoselect
 ```
 
-Or equivalently, since those are mostly the defaults:
+Or equivalently, since those are the defaults:
 
 ```sh
-python -m kagomevqe --noise
+python -m kagomevqe
 ```
 
 The beginning of the output will look something like this:
