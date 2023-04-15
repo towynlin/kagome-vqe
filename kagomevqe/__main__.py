@@ -97,16 +97,18 @@ elif args.backend == "ionq":
     print("Running on the IonQ simulator")
 
 
+reps = 2
 variant = "original"
 ham_class = KagomeHamiltonian
 if args.lattice == "asymmetric":
+    reps = 3
     variant = "fill16"
     ham_class = Kagome16AsymmetricHamiltonian
     print("Using asymmetric extended Kagome lattice Hamiltonian")
 
 prepend_rotsym = args.ansatz == "combo"
 ansatz = GuadalupeExpressibleJosephsonSampler(
-    reps=3, variant=variant, prepend_rotsym=prepend_rotsym
+    reps=reps, variant=variant, prepend_rotsym=prepend_rotsym
 )
 
 if args.ansatz == "rotsym":
