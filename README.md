@@ -1,5 +1,8 @@
 # VQE on the Kagome Lattice
 
+A submission for IBM Quantum's
+[Open Science Prize 2022](https://research.ibm.com/blog/ibm-quantum-open-science-prize-2022).
+
 ***The code in this repo must be run with python3.10.***
 
 Clone the repo and run the following from the cloned directory.
