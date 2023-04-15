@@ -2,10 +2,9 @@ from kagomevqe import RotoselectRepository, RotoselectTranslator, Rotosolve
 import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.algorithms.minimum_eigensolvers import VQE, VQEResult
-from qiskit.algorithms.optimizers import OptimizerResult
 from qiskit.circuit.library import RZGate, RYGate, RXGate
-from qiskit.opflow import PauliSumOp
 from qiskit.primitives import BaseEstimator, EstimatorResult
+from qiskit.quantum_info import SparsePauliOp
 from time import time
 from typing import List, Sequence, Tuple
 
@@ -40,7 +39,7 @@ class RotoselectVQE(VQE):
 
     def compute_minimum_eigenvalue(
         self,
-        operator: PauliSumOp,
+        operator: SparsePauliOp,
     ) -> VQEResult:
         self._operator = operator
         start_time = time()
@@ -114,7 +113,7 @@ class RotoselectVQE(VQE):
     def _run_and_maybe_retry_estimator(
         self,
         circuits: List[QuantumCircuit],
-        operators: Sequence[PauliSumOp],
+        operators: Sequence[SparsePauliOp],
         parameters: Sequence[Sequence[float]],
     ) -> np.ndarray:
         try:

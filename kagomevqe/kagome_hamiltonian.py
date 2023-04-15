@@ -1,8 +1,12 @@
 from kagomevqe import HeisenbergModel
-from qiskit.opflow import PauliSumOp
+from qiskit.quantum_info import SparsePauliOp
+from qiskit_nature import settings
 from qiskit_nature.second_q.mappers import LogarithmicMapper
 from qiskit_nature.second_q.hamiltonians.lattices import Lattice
 import rustworkx as rx
+
+
+settings.use_pauli_sum_op = False
 
 
 class KagomeHamiltonian:
@@ -41,12 +45,14 @@ class KagomeHamiltonian:
         return graph_16
 
     @staticmethod
-    def pauli_sum_op() -> PauliSumOp:
+    def pauli_sum_op() -> SparsePauliOp:
         graph_16 = __class__.graph()
         kagome_unit_cell_16 = Lattice(graph_16)
         heis_16 = HeisenbergModel(kagome_unit_cell_16)
         log_mapper = LogarithmicMapper()
-        return 4 * log_mapper.map(heis_16.second_q_op().simplify())  # type: ignore
+        mapped_op = log_mapper.map(heis_16.second_q_op().simplify())
+        assert isinstance(mapped_op, SparsePauliOp)
+        return mapped_op._multiply(4)
 
 
 class Kagome16AsymmetricHamiltonian:
@@ -96,8 +102,10 @@ class Kagome16AsymmetricHamiltonian:
         return Lattice(graph_16)
 
     @staticmethod
-    def pauli_sum_op() -> PauliSumOp:
+    def pauli_sum_op() -> SparsePauliOp:
         kagome_asymmetric_16 = __class__.lattice()
         heis_16 = HeisenbergModel(kagome_asymmetric_16)
         log_mapper = LogarithmicMapper()
-        return 4 * log_mapper.map(heis_16.second_q_op().simplify())  # type: ignore
+        mapped_op = log_mapper.map(heis_16.second_q_op().simplify())
+        assert isinstance(mapped_op, SparsePauliOp)
+        return mapped_op._multiply(4)

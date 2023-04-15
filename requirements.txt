@@ -1,8 +1,8 @@
-qiskit>=0.39
-qiskit-nature>=0.4.0
-qiskit-ibm-runtime>=0.7.0
-qiskit-ionq
-matplotlib>=3.5.2
+qiskit>=0.42.1
+qiskit-nature>=0.6.0
+qiskit-ibm-runtime>=0.9.3
+qiskit-ionq>=0.3.10
+matplotlib>=3.7
 pylatexenc
 jupyterlab
 ipywidgets
