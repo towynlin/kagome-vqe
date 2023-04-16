@@ -3,7 +3,6 @@ from kagomevqe import (
     GuadalupeExpressibleJosephsonSampler,
     GuadalupeKagomeExtended16,
     GuadalupeKagomeRotationalSymmetry,
-    IonQEstimator,
     KagomeHamiltonian,
     Kagome16AsymmetricHamiltonian,
     RetryEstimator,
@@ -17,6 +16,7 @@ import numpy as np
 from qiskit.algorithms.minimum_eigensolvers import VQE
 from qiskit.algorithms.optimizers import L_BFGS_B
 from qiskit.primitives import (
+    BackendEstimator,
     BaseEstimator,
     Estimator as LocalEstimator,
 )
@@ -213,7 +213,7 @@ elif IONQ:
     if not args.no_noise:
         print("Setting noise model to aria-1")
         backend.set_options(noise_model="aria-1")
-    execute_timed(IonQEstimator(backend))
+    execute_timed(BackendEstimator(backend))
 else:
     service = QiskitRuntimeService(
         channel="ibm_quantum",

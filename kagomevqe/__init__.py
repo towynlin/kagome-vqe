@@ -5,8 +5,8 @@ from .ansatze import (
     GuadalupeKagomeRotationalSymmetry,
 )
 from .heisenberg_model import HeisenbergModel
-from .estimators import IonQEstimator, RetryEstimator
 from .kagome_hamiltonian import KagomeHamiltonian, Kagome16AsymmetricHamiltonian
+from .retry_estimator import RetryEstimator
 from .rotosolve import Rotosolve
 from .rotoselect_translator import RotoselectTranslator
 from .rotoselect_repository import RotoselectRepository
@@ -15,7 +15,6 @@ from .simple_repository import SimpleRepository
 
 __all__ = [
     "HeisenbergModel",
-    "IonQEstimator",
     "GuadalupeEfficientSU2",
     "GuadalupeExpressibleJosephsonSampler",
     "GuadalupeKagomeExtended16",
